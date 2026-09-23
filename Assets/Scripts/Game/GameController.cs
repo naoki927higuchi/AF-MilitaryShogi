@@ -305,15 +305,17 @@ namespace MilitaryShogi.Game
             // Clock: runs from 対局開始 until the result is decided; only 「あそびかた」 (pause) stops it.
             if (!Paused && Session.Started && !IsFinished) ElapsedSeconds += Time.unscaledDeltaTime;
             if (Paused) return;
-            UpdateHover();
+            // A modal UI (設定・あそびかた・確認) owns the pointer: no hover, selection or moves behind it.
+            bool pointer = !ModalInput.PointerBlocked;
+            UpdateHover(pointer);
             switch (Phase)
             {
                 case Phase.Setup:
-                    if (Input.GetMouseButtonDown(0) && !MouseOverUi()) SetupClick(HoverNode);
+                    if (pointer && Input.GetMouseButtonDown(0) && !MouseOverUi()) SetupClick(HoverNode);
                     break;
                 case Phase.PlayerTurn:
-                    if (Input.GetMouseButtonDown(0) && !MouseOverUi()) PlayClick(HoverNode);
-                    else if (Input.GetMouseButtonDown(1)) Select(-1);
+                    if (pointer && Input.GetMouseButtonDown(0) && !MouseOverUi()) PlayClick(HoverNode);
+                    else if (pointer && Input.GetMouseButtonDown(1)) Select(-1);
                     break;
                 case Phase.CpuThinking:
                     if (thinking != null && thinking.IsCompleted && Time.time - thinkingSince >= (Settings.Effect == EffectMode.Normal ? 0.35f : 0.15f) / Settings.EffectSpeed)
@@ -340,9 +342,9 @@ namespace MilitaryShogi.Game
         /// <summary>Whether a screen point (GUI coordinates, pixels) is covered by a UI panel this frame.</summary>
         public bool IsOverUi(Vector2 guiPoint) { return UiRects.Any(r => r.Contains(guiPoint)); }
 
-        private void UpdateHover()
+        private void UpdateHover(bool pointer)
         {
-            HoverNode = MouseOverUi() ? -1 : PickAtScreen(Input.mousePosition);
+            HoverNode = !pointer || MouseOverUi() ? -1 : PickAtScreen(Input.mousePosition);
         }
 
         /// <summary>Board node under a screen position (the same routine the mouse uses), or -1.</summary>

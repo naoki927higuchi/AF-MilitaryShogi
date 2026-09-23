@@ -9,11 +9,12 @@ namespace MilitaryShogi.Game
     ///   -seeds P,C,D          player formation / CPU formation / CPU decision seeds
     ///   -autotest DIR         play automatically, verify, write screenshots + report into DIR, quit
     ///   -audioprobe FILE      measure real sound output (listener, source, clips, output mix), write FILE, quit
+    ///   -modalprobe FILE      real OS clicks behind 設定/あそびかた (modal input rule), write FILE, quit
     ///   -dataDir DIR          user data folder (presets, settings) instead of persistentDataPath
     /// </summary>
     public sealed class GameBootstrap : MonoBehaviour
     {
-        public const string Version = "1.2.1";
+        public const string Version = "1.2.2";
 
         private void Awake()
         {
@@ -85,6 +86,8 @@ namespace MilitaryShogi.Game
 
             string probe = Argument("-audioprobe");
             if (probe != null) controller.gameObject.AddComponent<AudioProbe>().Begin(controller, probe);
+            string modalProbe = Argument("-modalprobe");
+            if (modalProbe != null) controller.gameObject.AddComponent<ModalProbe>().Begin(controller, modalProbe);
 
             string autotest = Argument("-autotest");
             if (autotest != null)

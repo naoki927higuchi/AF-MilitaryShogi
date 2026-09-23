@@ -56,6 +56,20 @@ namespace MilitaryShogi.Game
 
         public static float Scale { get { return Mathf.Clamp(Screen.height / VirtualHeight, 0.75f, 2.5f); } }
 
+        /// <summary>
+        /// Where named controls were last drawn (window pixels, top-left origin), recorded on Repaint.
+        /// Used by -modalprobe to click the real controls with the OS cursor.
+        /// </summary>
+        public static readonly System.Collections.Generic.Dictionary<string, Vector2> Spots = new System.Collections.Generic.Dictionary<string, Vector2>();
+
+        public static void Spot(string key, Rect guiRect)
+        {
+            if (Event.current != null && Event.current.type == EventType.Repaint) Spots[key] = GUIUtility.GUIToScreenPoint(guiRect.center);
+        }
+
+        /// <summary>Records the last GUILayout control.</summary>
+        public static void SpotLast(string key) { Spot(key, GUILayoutUtility.GetLastRect()); }
+
         /// <summary>A button that looks pressed when <paramref name="on"/>.</summary>
         public bool Choice(Rect r, string text, bool on) { return GUI.Button(r, text, on ? Selected : Button); }
 

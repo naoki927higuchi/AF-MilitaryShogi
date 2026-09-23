@@ -39,7 +39,13 @@ namespace MilitaryShogi.Game
         private PresentationMode lastMode = (PresentationMode)(-1);
         public int WatchdogRepairs { get; private set; }
 
-        public void Bind(GameController controller) { game = controller; }
+        public void Bind(GameController controller)
+        {
+            game = controller;
+            // Input-modal UI (see ModalInput). Help is in front of everything.
+            ModalInput.Register("help", 100, () => HelpOpen);
+            ModalInput.Register("settings", 50, () => SettingsOpen);
+        }
 
         public void SetMode(PresentationMode mode)
         {
@@ -68,7 +74,7 @@ namespace MilitaryShogi.Game
         {
             if (game == null) return;
             // One key toggles 対戦⇔研究 (the header buttons do the same). Not while a text field has focus.
-            if (!HelpOpen && GUIUtility.keyboardControl == 0 && Input.GetKeyDown(ToggleKey)) Toggle();
+            if (!ModalInput.AnyOpen && GUIUtility.keyboardControl == 0 && Input.GetKeyDown(ToggleKey)) Toggle();
         }
 
         private void LateUpdate()

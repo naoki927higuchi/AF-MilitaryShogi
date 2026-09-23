@@ -28,6 +28,8 @@ namespace MilitaryShogi.Game
         public Rect ResearchButtonRect { get; private set; }
         public int ResultDrawCount { get; private set; }
         public int LastDrawFrame { get; private set; } = -1;
+        /// <summary>IMGUI control being pressed at the last repaint (0 = none), for -modalprobe.</summary>
+        public int HotControlAtRepaint { get; private set; }
         public string LastResultText { get; private set; }
         public Texture2D Logo { get { return logo; } }
         public PresetPanel Presets { get { return presets; } }
@@ -41,13 +43,21 @@ namespace MilitaryShogi.Game
             settings = new SettingsPanel(controller.Settings);
             presets = new PresetPanel(controller);
             controller.SetupStarted += () => { presets.Saving = false; presets.Message = ""; confirmNew = false; };
+            ModalInput.Register("confirmNew", 50, () => presentation.Mode == PresentationMode.Play && confirmNew);
         }
 
         private void Update()
         {
             if (game == null || presentation.Mode != PresentationMode.Play || presentation.HelpOpen) return;
-            if (Input.GetKeyDown(KeyCode.F1)) presentation.OpenHelp();
-            if (Input.GetKeyDown(KeyCode.Escape)) { presentation.SettingsOpen = false; confirmNew = false; presets.Saving = false; }
+            // Keys follow the modal rule too: with a modal open only its own key (Esc = close it) works.
+            string top = ModalInput.Top;
+            if (top == null && Input.GetKeyDown(KeyCode.F1)) presentation.OpenHelp();
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                if (top == "settings") presentation.SettingsOpen = false;
+                else if (top == "confirmNew") confirmNew = false;
+                else if (top == null) presets.Saving = false;
+            }
         }
 
         private void OnGUI()
@@ -68,14 +78,22 @@ namespace MilitaryShogi.Game
             game.UiRects.Clear();
             if (Event.current.type == EventType.Repaint) LastDrawFrame = Time.frameCount;
 
-            DrawLossHeadings();
-            DrawTopBar();
-            DrawStatusBar();
-            if (game.Phase == Phase.Setup) DrawSetup();
-            if (game.Phase == Phase.Finished) DrawResult();
-            if (presentation.SettingsOpen) DrawSettings();
-            if (confirmNew) DrawConfirmNew();
+            // Only the frontmost modal gets the pointer; everything behind it is drawn shielded.
+            string top = ModalInput.Top;
+            using (ModalInput.Background())
+            {
+                DrawLossHeadings();
+                DrawTopBar();
+                DrawStatusBar();
+                if (game.Phase == Phase.Setup) DrawSetup();
+                if (game.Phase == Phase.Finished) DrawResult();
+            }
+            if (presentation.SettingsOpen)
+                using (ModalInput.Background(top != "settings")) DrawSettings();
+            if (confirmNew)
+                using (ModalInput.Background(top != "confirmNew")) DrawConfirmNew();
             game.Tooltip.Draw(presentation.HelpOpen || presentation.SettingsOpen || confirmNew, false, game.Settings.ObservationTooltip);
+            if (Event.current.type == EventType.Repaint) HotControlAtRepaint = GUIUtility.hotControl;
         }
 
         private Rect Region(Rect r)
@@ -111,6 +129,9 @@ namespace MilitaryShogi.Game
             float bx = vw - 14 - 4 * 128;
             var research = new Rect(bx, 16, 120, 40);
             ResearchButtonRect = new Rect(research.x * scale, research.y * scale, research.width * scale, research.height * scale);
+            UiKit.Spot("play.research", research);
+            UiKit.Spot("play.help", new Rect(bx + 128, 16, 120, 40));
+            UiKit.Spot("play.settings", new Rect(bx + 256, 16, 120, 40));
             if (GUI.Button(research, "研究モードへ", ui.Button)) presentation.SetMode(PresentationMode.Research);
             if (GUI.Button(new Rect(bx + 128, 16, 120, 40), "あそびかた", ui.Button)) presentation.OpenHelp();
             if (GUI.Button(new Rect(bx + 256, 16, 120, 40), "設定", ui.Button)) { presentation.SettingsOpen = !presentation.SettingsOpen; confirmNew = false; }
@@ -167,6 +188,7 @@ namespace MilitaryShogi.Game
                     game.Settings.Strength = s;
                     game.RefreshCpu();
                 }
+            UiKit.SpotLast("setup.strongest");
             GUILayout.EndHorizontal();
             GUILayout.Space(4);
             GUILayout.Label("CPUの戦い方", ui.Small);
@@ -185,6 +207,7 @@ namespace MilitaryShogi.Game
                 game.Settings.PlayerFormationSeed = Random.Range(1, 1000000);
                 game.AutoArrange();
             }
+            UiKit.SpotLast("setup.omakase");
             GUILayout.Space(6);
             presets.Draw(ui, ui.TextField);
 

@@ -53,6 +53,7 @@ namespace MilitaryShogi.Game
             GUILayout.EndHorizontal();
             GUILayout.FlexibleSpace();
             if (GUILayout.Button("閉じる", ui.Button, GUILayout.Height(30))) close = true;
+            UiKit.SpotLast("settings.close");
             if (changed) UserData.SaveSettings(s);
             return close;
         }
@@ -98,6 +99,7 @@ namespace MilitaryShogi.Game
             {
                 bool empty = game.Presets.Slot(i).IsEmpty;
                 if (GUILayout.Button((i + 1) + (empty ? "" : "●"), i == SelectedSlot ? ui.Selected : ui.Button, GUILayout.Height(28)) && !Saving) { SelectedSlot = i; Message = ""; }
+                UiKit.SpotLast("preset.slot" + (i + 1));
             }
             GUILayout.EndHorizontal();
             var slot = game.Presets.Slot(SelectedSlot);
@@ -119,6 +121,7 @@ namespace MilitaryShogi.Game
                 if (GUILayout.Button("呼び出し", ui.Button, GUILayout.Height(28))) Load();
                 GUI.enabled = true;
                 if (GUILayout.Button("現在の配置を保存…", ui.Button, GUILayout.Height(28))) BeginSave();
+                UiKit.SpotLast("preset.save");
                 GUILayout.EndHorizontal();
             }
             if (!string.IsNullOrEmpty(Message)) GUILayout.Label(Message, ui.Small);

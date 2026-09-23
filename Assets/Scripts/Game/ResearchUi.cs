@@ -103,10 +103,15 @@ namespace MilitaryShogi.Game
         private void Update()
         {
             if (game == null || presentation.Mode != PresentationMode.Research || presentation.HelpOpen) return;
-            if (Input.GetKeyDown(KeyCode.M)) showMonitor = !showMonitor;
-            if (Input.GetKeyDown(KeyCode.H)) showHistory = !showHistory;
-            if (Input.GetKeyDown(KeyCode.F)) { game.Settings.Effect = game.Settings.Effect == EffectMode.Normal ? EffectMode.Simple : EffectMode.Normal; UserData.SaveSettings(game.Settings); }
-            if (Input.GetKeyDown(KeyCode.N)) game.Settings.ShowEnemyNumbers = !game.Settings.ShowEnemyNumbers;
+            string top = ModalInput.Top;
+            if (top == null)   // shortcuts act on the background, so not while a modal is open
+            {
+                if (Input.GetKeyDown(KeyCode.M)) showMonitor = !showMonitor;
+                if (Input.GetKeyDown(KeyCode.H)) showHistory = !showHistory;
+                if (Input.GetKeyDown(KeyCode.F)) { game.Settings.Effect = game.Settings.Effect == EffectMode.Normal ? EffectMode.Simple : EffectMode.Normal; UserData.SaveSettings(game.Settings); }
+                if (Input.GetKeyDown(KeyCode.N)) game.Settings.ShowEnemyNumbers = !game.Settings.ShowEnemyNumbers;
+            }
+            else if (top == "settings" && Input.GetKeyDown(KeyCode.Escape)) presentation.SettingsOpen = false;
             // The board is drawn in the area not covered by the left column and the monitor.
             float s = Mathf.Clamp(Screen.height / VirtualHeight, 0.75f, 2.5f);
             float left = LeftColumn * s;
@@ -138,15 +143,21 @@ namespace MilitaryShogi.Game
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
             game.UiRects.Clear();
 
-            DrawWorldLabels();
-            DrawTopBar();
-            if (game.Phase == Phase.Setup) DrawSetupPanel();
-            else DrawInfoPanel();
-            if (showHistory) DrawHistory();
-            if (showMonitor) DrawMonitor();
-            game.Tooltip.Draw(presentation.HelpOpen || presentation.SettingsOpen, presentation.RevealCpuPieces, true);
-            if (game.Phase == Phase.Finished) DrawResult();
-            if (presentation.SettingsOpen) DrawSettings();
+            // Only the frontmost modal gets the pointer; everything behind it is drawn shielded.
+            string top = ModalInput.Top;
+            using (ModalInput.Background())
+            {
+                DrawWorldLabels();
+                DrawTopBar();
+                if (game.Phase == Phase.Setup) DrawSetupPanel();
+                else DrawInfoPanel();
+                if (showHistory) DrawHistory();
+                if (showMonitor) DrawMonitor();
+                game.Tooltip.Draw(presentation.HelpOpen || presentation.SettingsOpen, presentation.RevealCpuPieces, true);
+                if (game.Phase == Phase.Finished) DrawResult();
+            }
+            if (presentation.SettingsOpen)
+                using (ModalInput.Background(top != "settings")) DrawSettings();
         }
 
         private Rect Region(Rect r)

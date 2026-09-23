@@ -60,6 +60,7 @@ namespace MilitaryShogi.Game
             ui.Fill(new Rect(r.x, r.y, r.width, 2), new Color(0.75f, 0.55f, 0.28f, 0.8f));
             GUI.Label(new Rect(r.x + 18, r.y + 10, 300, 32), "あそびかた", ui.Big);
             GUI.Label(new Rect(r.x + 180, r.y + 18, 500, 24), "対局は一時停止中です（閉じると再開）", ui.Small);
+            UiKit.Spot("help.close", new Rect(r.xMax - 128, r.y + 10, 110, 34));
             if (GUI.Button(new Rect(r.xMax - 128, r.y + 10, 110, 34), "閉じる", ui.Button)) presentation.CloseHelp();
 
             float y = r.y + 52;

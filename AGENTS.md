@@ -46,6 +46,7 @@
 - 配置プリセットはSeedではなく各マスのPieceTypeを形式バージョン付きで保存し、保存時・読込時に配置規則で検証して不正なデータを適用しない。読込は自軍配置だけを変え、CPUのSeed・配置・Knowledgeに触れない。
 - ユーザーデータ（プリセット・設定・UIエラーログ）は `Application.persistentDataPath`（`-dataDir` で変更可）に置き、自動検証は専用フォルダーを使って実ユーザーのデータに触れない。
 - 盤面レイアウトは盤＋左右の損失置き場（31枚分）を1つの視覚グループとして、カメラ角度・パースを保ったまま投影オフセットでプレイ領域の中央へ置く。固定pxの上下調整をしない。損失置き場の自軍・敵軍は面と並び順以外のTransform・影・卓面距離を共通にする。
+- Modal UI（設定・あそびかた・確認ダイアログ等）は `ModalInput` に登録し、最前面のModalだけが入力を持つ。背後のIMGUIは `ModalInput.Background` の中で描き、盤面などUpdateで読む入力は `ModalInput.PointerBlocked` を確認する。背後ボタンを個別に無効化しない。Modal外クリックは閉じずに消費し、閉じたクリックを背後へ渡さない。Modal（入力）と一時停止（時間）は別概念として扱う（1.2.2〜）。
 - IMGUIの描画は `UiGuard` で包み、例外で入力状態（hotControl・keyboardControl・GUI.enabled・matrix）が残らないようにする。あそびかたと一時停止・timeScaleの整合は `Presentation` のウォッチドッグで保つ。見えないオーバーレイが入力を塞ぐ状態を作らない（EXE自動検証のストレステストで検査）。
 
 ## 構成管理
