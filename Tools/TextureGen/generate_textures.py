@@ -4,18 +4,29 @@ Inputs (never modified): Reference/UserProvided/Images/
   - 軍人将棋無地駒.png        plain wooden piece (RGB, fake checker background)
   - 軍人将棋アイコン素材集.png  icon sheet; icons live in the alpha channel
   - 濃紺木目.png              dark wood for the board
-Font: KSO闘龍 (KsoTouryu.otf). Looked up in Reference/UserProvided/Fonts/ first,
-then in the installed Windows fonts. The font file itself is never copied into
-the project or the build; only rendered glyphs end up in the textures.
+Font for the piece names and the 総司令部 label: 昭和書体「闘龍」(KSO闘龍, family KsoTouryu),
+used ONLY as a font installed in the OS of the licensed development PC (1 licence / 1 PC).
+The font file is never read from, copied into or shipped with the project; only the rendered,
+finished textures are committed. Licence: https://designpocket.jp/font/detail/23984
+
+Without KSO闘龍 (anyone else who clones the repository) the script does not stop: it logs that
+KSO闘龍 is not installed and renders with a Japanese system font (Yu Gothic, Meiryo, … / Noto
+Sans CJK, Hiragino, …), checking that every character really has a glyph. Such output differs
+from the distributed textures. Building or running the game never needs this script or the
+font: the finished textures are committed.
 
 Outputs (overwritten deterministically): Assets/Generated/Resources/Textures/
   Pieces/piece_<type>.png, Pieces/piece_back.png, Pieces/piece_side.png,
-  Board/board_wood.png, Board/table_wood.png, Board/label_hq.png, UI/title_logo.png,
-  generation_manifest.json; application icons in Assets/Generated/Icons/app_icon_<size>.png
-and a contact sheet for review in Generated/Previews/.
+  Board/board_wood.png, Board/table_wood.png, Board/label_hq.png, UI/title_logo.png;
+application icons in Assets/Generated/Icons/app_icon_<size>.png; a contact sheet for review in
+Generated/Previews/; the generation record Generated/texture_generation_manifest.json.
 
-Run: python Tools/TextureGen/generate_textures.py
+Run:  python Tools/TextureGen/generate_textures.py
+      python Tools/TextureGen/generate_textures.py --out <dir>   (everything into <dir>; the
+            committed textures are not touched)
+      --simulate-no-kso   behave as if KSO闘龍 were not installed (tests the fallback)
 """
+import argparse
 import hashlib
 import json
 import os
@@ -32,7 +43,8 @@ PREVIEW = os.path.join(ROOT, "Generated", "Previews")
 PLAIN_PIECE = "軍人将棋無地駒.png"
 ICON_SHEET = "軍人将棋アイコン素材集.png"
 BOARD_WOOD = "濃紺木目.png"
-FONT_FILE = "KsoTouryu.otf"
+KSO_FAMILY = "KsoTouryu"          # family name of KSO闘龍 (the JIS90 font; not KsoTouryuN)
+KSO_DISPLAY = "昭和書体「闘龍」（KSO闘龍）"
 LOGO = "ロゴ タイトルとコピーのみ.png"
 APP_ICON = "アイコン画像.png"
 ICON_SIZES = (16, 24, 32, 40, 48, 64, 96, 128, 256, 512, 1024)
@@ -78,16 +90,126 @@ def sha256(path):
     return h.hexdigest()
 
 
-def find_font():
-    candidates = [
-        os.path.join(ROOT, "Reference", "UserProvided", "Fonts", FONT_FILE),
-        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "Windows", "Fonts", FONT_FILE),
-        os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts", FONT_FILE),
+def installed_font_dirs():
+    """Font folders of the OS (the project tree is never searched)."""
+    home = os.path.expanduser("~")
+    dirs = [
+        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "Windows", "Fonts"),   # Windows, per user
+        os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts"),                      # Windows, all users
+        "/System/Library/Fonts", "/Library/Fonts", os.path.join(home, "Library", "Fonts"),   # macOS
+        "/usr/share/fonts", "/usr/local/share/fonts", os.path.join(home, ".fonts"),           # Linux
+        os.path.join(home, ".local", "share", "fonts"),
     ]
-    for c in candidates:
-        if os.path.isfile(c):
-            return c
-    sys.exit("KSO闘龍 font (%s) not found. Put it in Reference/UserProvided/Fonts/." % FONT_FILE)
+    return [d for d in dirs if d and os.path.isdir(d)]
+
+
+def installed_font_files():
+    for d in installed_font_dirs():
+        for root, _, names in os.walk(d):
+            for n in names:
+                if n.lower().endswith((".otf", ".ttf", ".ttc")):
+                    yield os.path.join(root, n)
+
+
+def registry_fonts():
+    """Windows: font files registered for the user and the machine (may live outside the font folders)."""
+    try:
+        import winreg
+    except ImportError:
+        return []
+    found = []
+    key = r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
+    for hive, base in ((winreg.HKEY_CURRENT_USER, ""), (winreg.HKEY_LOCAL_MACHINE, os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "Fonts"))):
+        try:
+            with winreg.OpenKey(hive, key) as k:
+                i = 0
+                while True:
+                    try:
+                        name, value, _ = winreg.EnumValue(k, i)
+                    except OSError:
+                        break
+                    i += 1
+                    path = value if os.path.isabs(value) else os.path.join(base, value)
+                    found.append((name, path))
+        except OSError:
+            pass
+    return found
+
+
+def family(path, index=0):
+    try:
+        return ImageFont.truetype(path, 10, index=index).getname()[0]
+    except OSError:
+        return None
+
+
+def find_kso():
+    """KSO闘龍 installed in the OS, or None. Matched by the font's own family name."""
+    candidates = [path for name, path in registry_fonts() if "kso" in name.lower() or "touryu" in name.lower()]
+    candidates += [p for p in installed_font_files() if "kso" in os.path.basename(p).lower() or "touryu" in os.path.basename(p).lower()]
+    for path in candidates:
+        if os.path.isfile(path) and family(path) == KSO_FAMILY:
+            return path
+    return None
+
+
+# Japanese system fonts tried in this order when KSO闘龍 is not installed: (file name, index in a .ttc).
+FALLBACK_FONTS = [
+    ("YuGothM.ttc", 0), ("YuGothR.ttc", 0), ("YuGothB.ttc", 0),          # Windows: Yu Gothic
+    ("meiryo.ttc", 0), ("BIZ-UDGothicR.ttc", 0), ("msgothic.ttc", 0),     # Windows: Meiryo, BIZ UD, MS Gothic
+    ("ヒラギノ角ゴシック W3.ttc", 0), ("Hiragino Sans GB.ttc", 0),          # macOS
+    ("NotoSansCJK-Regular.ttc", 0), ("NotoSansCJKjp-Regular.otf", 0),     # Linux
+    ("NotoSansJP-Regular.otf", 0), ("ipagp.ttf", 0), ("fonts-japanese-gothic.ttf", 0),
+]
+
+
+def renders_all(path, index, text):
+    """True if every character of text has a real glyph (not empty, not the .notdef box)."""
+    try:
+        font = ImageFont.truetype(path, 64, index=index)
+    except OSError:
+        return False
+    notdef = font.getmask("\uE000")                      # private-use code point → .notdef in fonts without it
+    for ch in set(text):
+        m = font.getmask(ch)
+        if m.getbbox() is None:
+            return False
+        if m.size == notdef.size and bytes(m) == bytes(notdef):
+            return False
+    return True
+
+
+def find_fallback(text):
+    by_name = {}
+    for p in installed_font_files():
+        by_name.setdefault(os.path.basename(p), p)
+    for name, index in FALLBACK_FONTS:
+        path = by_name.get(name)
+        if path and renders_all(path, index, text):
+            return path, index
+    # Last resort: any installed font that renders every character.
+    for p in sorted(by_name.values()):
+        if renders_all(p, 0, text):
+            return p, 0
+    return None, 0
+
+
+def choose_font(simulate_no_kso):
+    """(path, index, family, fallback). Never stops because KSO闘龍 is missing."""
+    needed = "".join(name for _, name, _ in PIECES) + "総司令部"
+    kso = None if simulate_no_kso else find_kso()
+    if kso:
+        print("KSO闘龍を検出しました：%s" % kso)
+        print("KSO闘龍を使用して駒テクスチャを生成します。")
+        return kso, 0, KSO_FAMILY, False
+    path, index = find_fallback(needed)
+    if path is None:
+        sys.exit("日本語を描画できるフォントがOSに見つかりません（KSO闘龍も代替フォントもなし）。日本語フォントをインストールしてください。")
+    name = " ".join(ImageFont.truetype(path, 10, index=index).getname())
+    print("KSO闘龍はインストールされていません%s。" % ("（--simulate-no-kso）" if simulate_no_kso else ""))
+    print("代替フォント「%s」（%s）を使用して駒テクスチャを生成します。" % (name, os.path.basename(path)))
+    print("この生成結果は配布版と外観が異なります。ゲームのビルド・実行にはKSO闘龍は必要ありません。")
+    return path, index, ImageFont.truetype(path, 10, index=index).getname()[0], True
 
 
 def outline_mask(scale=4):
@@ -152,10 +274,10 @@ def stars_layer(count, scale=4):
     return layer.resize((W, H), Image.LANCZOS)
 
 
-def text_layer(text, font_path):
+def text_layer(text, font_path, font_index=0):
     """Piece name with KSO闘龍. Same glyph height for all; long names are squeezed horizontally."""
     em = int(TEXT_CHAR_H * H * 4)
-    font = ImageFont.truetype(font_path, em)
+    font = ImageFont.truetype(font_path, em, index=font_index)
     tracking = 0.02 * em if len(text) == 2 else 0.0
     glyphs = []
     for ch in text:
@@ -210,7 +332,22 @@ def finish(face, mask):
 
 
 def main():
-    font_path = find_font()
+    global OUT, PREVIEW
+    ap = argparse.ArgumentParser(description="AF-MilitaryShogi texture generator")
+    ap.add_argument("--out", help="write everything into this folder instead of the project (committed textures untouched)")
+    ap.add_argument("--simulate-no-kso", action="store_true", help="act as if KSO闘龍 were not installed (fallback test)")
+    args = ap.parse_args()
+    icon_dir = os.path.join(ROOT, "Assets", "Generated", "Icons")
+    manifest_path = os.path.join(ROOT, "Generated", "texture_generation_manifest.json")
+    if args.out:
+        out_root = os.path.abspath(args.out)
+        OUT, PREVIEW = os.path.join(out_root, "Textures"), os.path.join(out_root, "Previews")
+        icon_dir = os.path.join(out_root, "Icons")
+        manifest_path = os.path.join(out_root, "texture_generation_manifest.json")
+    rel_base = os.path.abspath(args.out) if args.out else ROOT   # manifest paths are relative to this
+    font_path, font_index, font_family, fallback = choose_font(args.simulate_no_kso)
+    if fallback and not args.out:
+        print("注意：プロジェクト内の生成済みテクスチャを代替フォントの結果で上書きします（配布版の駒文字とは異なります）。")
     pieces_dir = os.path.join(OUT, "Pieces")
     board_dir = os.path.join(OUT, "Board")
     os.makedirs(pieces_dir, exist_ok=True)
@@ -224,7 +361,7 @@ def main():
     outputs = []
 
     for file_id, name, mark in PIECES:
-        cover = text_layer(name, font_path)
+        cover = text_layer(name, font_path, font_index)
         if isinstance(mark, int):
             cover = ImageChops.lighter(cover, stars_layer(mark))
         else:
@@ -270,7 +407,7 @@ def main():
     outputs.append(path)
 
     # Engraved "総司令部" label decal for the headquarters (the HQ area itself is Unity geometry).
-    font = ImageFont.truetype(font_path, 160)
+    font = ImageFont.truetype(font_path, 160, index=font_index)
     text = "総司令部"
     l, t, r, b = font.getbbox(text)
     label = Image.new("L", (r - l + 40, b - t + 40), 0)
@@ -313,7 +450,6 @@ def main():
     side_px = max(icon.size)
     square = Image.new("RGBA", (side_px, side_px), (0, 0, 0, 0))
     square.paste(icon, ((side_px - icon.width) // 2, (side_px - icon.height) // 2))
-    icon_dir = os.path.join(ROOT, "Assets", "Generated", "Icons")
     os.makedirs(icon_dir, exist_ok=True)
     for size in ICON_SIZES:
         path = os.path.join(icon_dir, "app_icon_%d.png" % size)
@@ -333,13 +469,16 @@ def main():
     manifest = {
         "generator": "Tools/TextureGen/generate_textures.py",
         "inputs": {n: sha256(os.path.join(SRC, n)) for n in (PLAIN_PIECE, ICON_SHEET, BOARD_WOOD, LOGO, APP_ICON)},
-        "font": {"file": FONT_FILE, "family": " ".join(ImageFont.truetype(font_path, 10).getname()),
-                 "note": "Installed font used for rendering only; not redistributed."},
+        "font": {"requested": KSO_FAMILY, "actual": font_family, "fallback": fallback,
+                 "note": ("Fallback system font: the piece lettering differs from the distributed textures."
+                          if fallback else
+                          "KSO闘龍 installed in the OS of the licensed PC; used for rendering only, never copied or distributed.")},
         "logo_crop": [0, 0, 2172, 620], "logo_note": "Game-only two-line crop; UserProvided original unchanged",
         "face_size": [W, H], "outline_uv": OUTLINE,
-        "outputs": {os.path.relpath(p, ROOT).replace("\\", "/"): sha256(p) for p in outputs},
+        "outputs": {os.path.relpath(p, rel_base).replace("\\", "/"): sha256(p) for p in outputs},
     }
-    with open(os.path.join(OUT, "generation_manifest.json"), "w", encoding="utf-8") as f:
+    os.makedirs(os.path.dirname(manifest_path), exist_ok=True)
+    with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2)
     print("generated %d files" % len(outputs))
 

@@ -38,3 +38,12 @@ __pycache__/
 
 # Unity Android native build temp
 /.utmp/
+
+# Font files are never part of the project (licensed fonts stay installed in the OS only).
+*.otf
+*.ttf
+*.ttc
+*.woff
+*.woff2
+*.eot
+/Reference/UserProvided/Fonts/

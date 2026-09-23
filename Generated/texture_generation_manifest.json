@@ -8,9 +8,10 @@
     "アイコン画像.png": "1a87dfca0519c49685394f22329c486b11aa0612e477464e092f79fae08946ea"
   },
   "font": {
-    "file": "KsoTouryu.otf",
-    "family": "KsoTouryu Regular",
-    "note": "Installed font used for rendering only; not redistributed."
+    "requested": "KsoTouryu",
+    "actual": "KsoTouryu",
+    "fallback": false,
+    "note": "KSO闘龍 installed in the OS of the licensed PC; used for rendering only, never copied or distributed."
   },
   "logo_crop": [
     0,

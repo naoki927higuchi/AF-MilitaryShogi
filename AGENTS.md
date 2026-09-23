@@ -21,15 +21,16 @@
 | 公開先 | `Distribution/` |
 | 利用者が別途用意するランタイム・外部ツール | なし（Unityプレイヤー同梱） |
 | 製品ライセンス | 公開時に決定 |
-| 第三者ライセンス表記 | 公開時に決定。駒テクスチャにはKSO闘龍フォントで描画した文字が含まれる（フォントファイルは同梱しない）。フォントの使用許諾と配布物は2026-09-24に監査済み（判定A、Tests/ACCEPTANCE-1.3.0.md）。製品ライセンスは公開時に決定 |
+| 第三者ライセンス表記 | 公開時に決定。駒テクスチャには昭和書体「闘龍」（KSO闘龍）で描画した文字が含まれる（フォントファイルは同梱しない。使用許諾 https://designpocket.jp/font/detail/23984 ）。フォントの使用許諾と配布物は2026-09-24に監査済み（判定A、Tests/ACCEPTANCE-1.3.0.md）。製品ライセンスは公開時に決定 |
 
 ## 素材の管理（本プロジェクト固有）
 
 - 人間（ユーザー）が提供した原本は `Reference/UserProvided/` に置き、非破壊で保持する。加工・合成・生成したものと混在させない。
 - ユーザーが W:/dev 直下に新しい素材を置いた場合は、作業開始時に `Reference/UserProvided/` の該当フォルダーへ移動してから使う。移動したら `Reference/UserProvided/README.md` の一覧（ファイル名・受領日・SHA256）を更新する。
 - ゲーム用に加工・生成したリソースは `Assets/Generated/`（ランタイム読込は `Assets/Generated/Resources/`）、ゲームに入らない確認用の生成物は `Generated/` に置く。
-- 駒・盤テクスチャは `Tools/TextureGen/generate_textures.py` で原本から機械的・再現可能に生成する。手作業で画像を編集しない。生成物の入力ハッシュは `generation_manifest.json` に記録される。
-- KSO闘龍フォントはインストール済みフォント（または `Reference/UserProvided/Fonts/`）から生成時にだけ読み込み、フォントファイルをプロジェクト・ビルドへ複製しない。
+- 駒・盤テクスチャは `Tools/TextureGen/generate_textures.py` で原本から機械的・再現可能に生成する。手作業で画像を編集しない。生成物の入力ハッシュは `Generated/texture_generation_manifest.json` に記録される。
+- 昭和書体「闘龍」（KSO闘龍）は、正規ライセンスで開発PCのOSへインストールしたものだけを生成時に読み込む（1ライセンス/1PC）。フォントファイルをリポジトリ・Reference・Assets・ビルド・Distribution・APKへ置かない（`.gitignore` でフォントファイルと `Reference/UserProvided/Fonts/` を除外）。ビルドやCI・端末へフォントをコピー・インストールする構成にしない。
+- 生成スクリプトはKSO闘龍がなくても止めず、OSの日本語フォントへ代替して完走する（代替した旨を表示し、`Generated/texture_generation_manifest.json` に requested/actual/fallback を記録）。代替フォントの生成物で正式な生成済みテクスチャを上書き・コミットしない。通常のビルド・配布ZIP作成は生成スクリプトを実行しない（2026-09-24〜）。
 - 効果音は外部の音源・効果音素材を使わず、`Tools/AudioGen/generate_sfx.py` で固定Seedから再現可能に生成する（`audio_manifest.json`）。木の乾いた物理音に限り、銃声・爆発・サイレン・電子音・単一周波数の音、BGMを入れない（1.2.0〜）。
 
 ## ルールとCPUの不変条件（本プロジェクト固有）

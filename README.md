@@ -142,6 +142,15 @@ PC版の **対戦モードだけ** をスマートフォンで遊べるように
 - **文字**：端末のCJKフォント（Noto Sans CJK等）を使用し、フォントファイルは同梱しない。
 - **APK**：`Build-Android.ps1` で `bin/Android/Release-<Version>/AF-MilitaryShogi-<Version>.apk`（ARM64/IL2CPP Release、デバッグ不可、シンボルなし、専用のローカルRelease鍵で署名）。自分の端末へインストールして遊ぶためのもので、GitHub Releases・`Distribution/` 等で **一般配布しない**。
 
+## 駒の文字のフォントとテクスチャ生成
+
+- 駒の文字（16種の駒名）と盤の「総司令部」には **昭和書体「闘龍」（KSO闘龍）** を使用している（使用許諾：https://designpocket.jp/font/detail/23984 ）。
+- 配布版の駒テクスチャは、正規ライセンスのKSO闘龍で画像化して生成済みで、PNGとしてコミットしてある（`Assets/Generated/Resources/Textures/`）。
+- **フォント本体はリポジトリにも配布物（Windows ZIP・Android APK）にも含まれない。** `.gitignore` でフォントファイル（otf/ttf/ttc/woff/woff2/eot）を除外している。
+- **ゲームのビルド・実行にKSO闘龍は不要。** 生成済みテクスチャがコミットされているので、cloneしてそのままビルドできる。ビルドやZIP作成はテクスチャ生成スクリプトを実行しない。
+- テクスチャ生成スクリプト `Tools/TextureGen/generate_textures.py` を再実行した場合、KSO闘龍がOSにインストールされていればそれを使う。なければ（その旨を表示して）OSの日本語フォント（Yu Gothic、Meiryo、Noto Sans CJK等）で最後まで生成する。代替フォントの生成物は配布版と文字のデザインが異なる。`--out <フォルダー>` で出力先を分けると、コミット済みのテクスチャを変えずに試せる。
+- 生成記録（入力と出力のハッシュ、要求したフォント・実際に使ったフォント・代替したか）は `Generated/texture_generation_manifest.json`。
+
 ## ビルドとテスト
 
 ```powershell
@@ -168,7 +177,7 @@ PC版の **対戦モードだけ** をスマートフォンで遊べるように
 | `Assets/Generated/Resources/` | 原本から生成したゲーム用リソース（駒・盤テクスチャ、司令部ラベル、タイトルロゴ `Textures/UI/title_logo.png`、マテリアル） |
 | `Assets/Generated/Icons/` | アプリアイコン（原本の角の黒を透過し16〜1024pxに変換）。ビルド時にWindowsアイコンへ設定 |
 | `Generated/Previews/` | ゲームに入らない確認用の生成物（駒テクスチャ一覧） |
-| `Tools/TextureGen/` | テクスチャ生成スクリプト（Python 3 + Pillow + NumPy） |
+| `Tools/TextureGen/` | テクスチャ生成スクリプト（Python 3 + Pillow + NumPy）。駒文字は昭和書体「闘龍」（KSO闘龍、OSにインストール済みの場合）、なければOSの日本語フォントで生成 |
 | `Tools/AudioGen/` | 効果音生成スクリプト（Python 3 + NumPy）。出力は `Assets/Generated/Resources/Audio/` と `audio_manifest.json` |
 | `Assets/Scripts/` | Rules / Observation / Engine / Cpu / Game |
 | `Assets/Editor/` | シーン・マテリアル生成、テクスチャ取込設定、Windowsビルド |

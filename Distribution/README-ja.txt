@@ -17,5 +17,6 @@ ZIPをすべて展開し、フォルダー内の AF-MilitaryShogi.exe を起動�
 配置プリセットと設定：%USERPROFILE%\AppData\LocalLow\AF\AF-MilitaryShogi\
 
 ■ 素材について
-駒の文字はKSO闘龍フォントで描画した画像です（フォントファイルは同梱していません）。
+駒の文字は昭和書体「闘龍」（KSO闘龍）で描画した画像です（フォントファイルは同梱していません）。
+使用許諾：https://designpocket.jp/font/detail/23984
 効果音は外部素材を使わず、プログラムで生成しています。
