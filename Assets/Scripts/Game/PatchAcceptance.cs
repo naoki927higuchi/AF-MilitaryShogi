@@ -347,6 +347,10 @@ namespace MilitaryShogi.Game
         {
             var audio = game.Audio;
             var s = game.Settings;
+            // Timing checks only prove Play was requested; without a listener nothing is heard (1.2.0).
+            // The real output is measured by -audioprobe (AudioProbe.cs).
+            var listeners = FindObjectsByType<AudioListener>(FindObjectsSortMode.None);
+            if (listeners.Length != 1 || !listeners[0].isActiveAndEnabled) Fail("expected exactly one active AudioListener, found " + listeners.Length);
             bool on0 = s.SfxOn; int vol0 = s.SfxVolume;
             s.SfxOn = true; s.SfxVolume = 50;
             yield return WaitFrames(2);

@@ -8,10 +8,12 @@ namespace MilitaryShogi.Game
     /// scene file stays trivial. Command line:
     ///   -seeds P,C,D          player formation / CPU formation / CPU decision seeds
     ///   -autotest DIR         play automatically, verify, write screenshots + report into DIR, quit
+    ///   -audioprobe FILE      measure real sound output (listener, source, clips, output mix), write FILE, quit
+    ///   -dataDir DIR          user data folder (presets, settings) instead of persistentDataPath
     /// </summary>
     public sealed class GameBootstrap : MonoBehaviour
     {
-        public const string Version = "1.2.0";
+        public const string Version = "1.2.1";
 
         private void Awake()
         {
@@ -37,6 +39,9 @@ namespace MilitaryShogi.Game
             // Fixed high-angle view from the player's side: perspective makes the far side narrower.
             cam.transform.position = new Vector3(0f, 13.6f, -10.4f);
             cam.transform.rotation = Quaternion.Euler(54f, 0f, 0f);
+            // Cameras made with AddComponent have no AudioListener; without one Unity mixes nothing
+            // (1.2.0 was silent). Exactly one listener, on the main camera; sounds are 2D.
+            cam.gameObject.AddComponent<AudioListener>();
 
             var sun = new GameObject("Key Light").AddComponent<Light>();
             sun.type = LightType.Directional;
@@ -77,6 +82,9 @@ namespace MilitaryShogi.Game
             research.Bind(controller, presentation);
             var help = controller.gameObject.AddComponent<HelpUi>();
             help.Bind(controller, presentation);
+
+            string probe = Argument("-audioprobe");
+            if (probe != null) controller.gameObject.AddComponent<AudioProbe>().Begin(controller, probe);
 
             string autotest = Argument("-autotest");
             if (autotest != null)

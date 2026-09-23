@@ -28,6 +28,8 @@ namespace MilitaryShogi.Game
         private int variant;
         public readonly List<Entry> Log = new List<Entry>();
         public float CurrentVolume { get { return source != null ? source.volume : 0f; } }
+        public AudioSource Source { get { return source; } }
+        public AudioClip[] Clips(Sfx kind) { AudioClip[] c; return clips.TryGetValue(kind, out c) ? c : new AudioClip[0]; }
 
         public void Initialise(GameSettings settings)
         {
@@ -49,7 +51,11 @@ namespace MilitaryShogi.Game
             {
                 var c = Resources.Load<AudioClip>("Audio/" + n);
                 if (c == null) Debug.LogError("Missing sound Resources/Audio/" + n);
-                else list.Add(c);
+                else
+                {
+                    c.LoadAudioData();   // decode now, so the first press is not late or dropped
+                    list.Add(c);
+                }
             }
             return list.ToArray();
         }
