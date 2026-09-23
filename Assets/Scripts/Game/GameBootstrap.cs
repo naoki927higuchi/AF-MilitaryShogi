@@ -11,7 +11,7 @@ namespace MilitaryShogi.Game
     /// </summary>
     public sealed class GameBootstrap : MonoBehaviour
     {
-        public const string Version = "1.1.1";
+        public const string Version = "1.2.0";
 
         private void Awake()
         {
@@ -61,7 +61,10 @@ namespace MilitaryShogi.Game
             var graveyard = new GameObject("Graveyard").AddComponent<GraveyardView>();
             var controller = new GameObject("Game").AddComponent<GameController>();
             bool seeded = ApplySeedArguments(controller.Settings);
-            controller.Initialise(cam, board, graveyard);
+            UserData.LoadSettings(controller.Settings);        // 演出・観測情報・効果音（前回の設定）
+            var audio = controller.gameObject.AddComponent<AudioDirector>();
+            audio.Initialise(controller.Settings);
+            controller.Initialise(cam, board, graveyard, audio);
             if (!seeded) controller.NewSetup(true);   // normal play: fresh hidden seeds
 
             // Presentation only (対戦 / 研究 / あそびかた). Start-up mode is always 対戦.

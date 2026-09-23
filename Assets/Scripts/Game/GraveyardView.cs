@@ -12,14 +12,19 @@ namespace MilitaryShogi.Game
     /// Right: 敵軍の損失 – all show the common back, in the order they were removed. The slot of an
     /// enemy piece is a function of its death index only; no kind is ever passed to this class for
     /// enemy pieces, so the layout cannot reveal anything but the count.
-    /// Both sides use the same grid: 3 columns x up to 11 rows, filled from the top-left to the right.
+    /// Both sides use the same grid: 3 columns x up to 11 rows, filled from the top-left to the right,
+    /// and the same physical placement: lying on the table surface (not floating at board height),
+    /// same orientation, scale and shadow settings. Only the face shown and the ordering differ.
     /// </summary>
     public sealed class GraveyardView : MonoBehaviour
     {
         public const int Columns = 3;
         public const int Rows = 11;
-        public const float Scale = 0.78f;
-        private const float Dx = 0.73f, Dz = 0.82f, Gap = 0.8f, TopZ = 3.8f;   // closer to the camera than the board centre, so they read well
+        public const float Scale = 0.86f;
+        // Column/row pitch, distance of the first column from the board edge, first row, heading gap.
+        private const float Dx = 0.76f, Dz = 0.84f, Gap = 0.5f, TopZ = 4.3f, HeadingGap = 1.35f;
+        /// <summary>Loss pieces rest on the table, whose surface is one board thickness below the board top.</summary>
+        public static float TableY { get { return -BoardLayout.BoardThickness; } }
 
         private readonly List<PieceView> own = new List<PieceView>();
         private readonly List<PieceView> enemy = new List<PieceView>();
@@ -35,7 +40,7 @@ namespace MilitaryShogi.Game
             int col = index % Columns, row = index / Columns;
             float halfBoard = BoardLayout.Width / 2f;
             float left = enemySide ? halfBoard + Gap : -halfBoard - Gap - (Columns - 1) * Dx;
-            return new Vector3(left + col * Dx, 0f, TopZ - row * Dz);
+            return new Vector3(left + col * Dx, TableY, TopZ - row * Dz);
         }
 
         /// <summary>World point above a block's first row, for the small heading.</summary>
@@ -43,7 +48,7 @@ namespace MilitaryShogi.Game
         {
             var a = Slot(0, enemySide);
             var b = Slot(Columns - 1, enemySide);
-            return new Vector3((a.x + b.x) / 2f, 0f, TopZ + 0.62f);
+            return new Vector3((a.x + b.x) / 2f, TableY, TopZ + HeadingGap);
         }
 
         /// <summary>Outer corners of both blocks (for fitting the camera).</summary>
@@ -53,9 +58,9 @@ namespace MilitaryShogi.Game
             {
                 var first = Slot(0, e);
                 var last = Slot(Columns * Rows - 1, e);
-                foreach (float x in new[] { first.x - 0.4f, last.x + 0.4f })
-                    foreach (float z in new[] { TopZ + 0.9f, last.z - 0.45f })
-                        foreach (float y in new[] { 0f, PieceMeshFactory.BaseHeight * Scale })
+                foreach (float x in new[] { first.x - 0.45f, last.x + 0.45f })
+                    foreach (float z in new[] { TopZ + HeadingGap + 0.45f, last.z - 0.5f })
+                        foreach (float y in new[] { TableY, TableY + PieceMeshFactory.BaseHeight * Scale })
                             yield return new Vector3(x, y, z);
             }
         }
@@ -87,7 +92,7 @@ namespace MilitaryShogi.Game
             var order = GameSession.EnemyDeathOrder(view);
             for (int i = enemy.Count; i < order.Count; i++)
             {
-                var v = PieceView.CreateEnemy(transform, order[i], view.EnemyById(order[i]).Number, false);
+                var v = PieceView.CreateEnemy(transform, order[i], view.EnemyById(order[i]).Number, true);   // same orientation as the own side
                 Lay(v, Slot(i, true));
                 enemy.Add(v);
                 enemyIds.Add(order[i]);
@@ -98,7 +103,10 @@ namespace MilitaryShogi.Game
         {
             v.Node = -1;
             v.transform.localPosition = at;
+            v.transform.localRotation = Quaternion.identity;
             v.transform.localScale = Vector3.one * Scale;
+            v.Renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            v.Renderer.receiveShadows = true;
             v.gameObject.SetActive(true);
         }
 

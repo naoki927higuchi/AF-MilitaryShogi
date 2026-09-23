@@ -1,9 +1,11 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param([string]$Exe, [string]$Seeds = '1001,2002,3003')
 # Plays full games in the built player and verifies them (see AutoPilot.cs):
 #  run A: normal run with screenshots of 対戦/研究 modes and 「あそびかた」
-#  run B: same seeds, presentation mode flipped after every ply (-toggleModes)
+#  run B: same seeds, presentation mode flipped after every ply (-toggleModes); a new process on the
+#         same user-data folder, so it also verifies that run A's preset and volume survived (-expectPersisted)
 # The final session fingerprints of A and B must be identical. Also checks the EXE's icon.
+# User data goes to a fresh folder (-dataDir); the real user's presets/settings are never touched.
 # Output: Builds/AutoTest/<timestamp>/{A,B}/
 $ErrorActionPreference = 'Stop'
 $version = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'VERSION.txt') -Raw).Trim()
@@ -11,10 +13,12 @@ if (-not $Exe) { $Exe = Join-Path $PSScriptRoot "bin\Release-$version\AF-Militar
 $root = Join-Path $PSScriptRoot ('Builds\AutoTest\' + [DateTime]::Now.ToString('yyyyMMdd-HHmmss'))
 $failed = $false
 $prints = @{}
-foreach ($run in @(@{ Name = 'A'; Extra = @() }, @{ Name = 'B'; Extra = @('-toggleModes') })) {
+$dataDir = Join-Path $root 'userdata'
+New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
+foreach ($run in @(@{ Name = 'A'; Extra = @() }, @{ Name = 'B'; Extra = @('-toggleModes', '-expectPersisted') })) {
     $out = Join-Path $root $run.Name
     New-Item -ItemType Directory -Force -Path $out | Out-Null
-    $playerArgs = @('-autotest', $out, '-seeds', $Seeds, '-logFile', (Join-Path $out 'player.log')) + $run.Extra
+    $playerArgs = @('-autotest', $out, '-seeds', $Seeds, '-logFile', (Join-Path $out 'player.log'), '-dataDir', $dataDir) + $run.Extra
     & $Exe @playerArgs | Out-Host
     $playerExitCode = $LASTEXITCODE
     $report = Join-Path $out 'autotest_report.txt'

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,6 +9,8 @@ using MilitaryShogi.Rules;
 
 namespace MilitaryShogi.Game
 {
+    public enum EffectMode { Normal, Simple }
+
     /// <summary>Seeds and CPU choices for one game (shared by both presentation modes).</summary>
     public sealed class GameSettings
     {
@@ -17,9 +20,12 @@ namespace MilitaryShogi.Game
         public CpuStrength Strength = CpuStrength.Normal;   // 中
         public int Temperament;                              // バランス
         public FormationStyle? CpuStyle;                     // research only: force a formation style
-        public bool EffectsOn = true;
+        public EffectMode Effect = EffectMode.Normal;        // 戦闘演出: 通常 / 簡易
         public float EffectSpeed = 1f;
         public bool ShowEnemyNumbers = true;
+        public bool ObservationTooltip = true;               // 敵駒の観測情報（対戦モードのツールチップ）
+        public bool SfxOn = true;
+        public int SfxVolume = 80;                           // 0..100
 
         public CpuProfile Profile { get { return new CpuProfile(Strength, Temperament); } }
     }
@@ -73,6 +79,32 @@ namespace MilitaryShogi.Game
         {
             PlayerStyle = FormationStyles.FromSeed(Settings.PlayerFormationSeed);
             PlayerFormation = FormationGenerator.Generate(Human, PlayerStyle, Settings.PlayerFormationSeed);
+        }
+
+        /// <summary>Replace the own placement before the game (preset). CPU seeds, formation and knowledge are untouched.</summary>
+        public void SetPlayerFormation(Formation formation)
+        {
+            if (Started) throw new InvalidOperationException("The game has already started.");
+            PlacementRules.Validate(formation);
+            PlayerFormation = formation.Clone();
+        }
+
+        /// <summary>
+        /// Research mode 「CPU駒の正体を表示」 only: the true kind of a CPU piece, read from the CPU's own
+        /// view (the CPU knows its own pieces). Never used by the play mode or the CPU.
+        /// </summary>
+        public PieceType? ResearchTrueKind(int pieceId)
+        {
+            if (!Started) return null;
+            var p = Match.GetView(Computer).OwnById(pieceId);
+            return p != null ? p.Type : (PieceType?)null;
+        }
+
+        /// <summary>Research reveal during setup: the CPU's placement at a node.</summary>
+        public PieceType? ResearchTrueKindAtSetupNode(int node)
+        {
+            PieceType t;
+            return CpuFormation.TryGet(node, out t) ? t : (PieceType?)null;
         }
 
         public bool Started { get { return Match != null; } }

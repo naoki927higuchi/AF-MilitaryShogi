@@ -1,0 +1,40 @@
+{
+  "generator": "Tools/AudioGen/generate_sfx.py",
+  "sample_rate": 44100,
+  "format": "PCM16 mono",
+  "note": "Synthesized; no external audio material.",
+  "outputs": {
+    "Assets/Generated/Resources/Audio/sfx_clash_1.wav": {
+      "sha256": "c8f840ceb299ebc1a3def528e0563ea2f8206e83715167b91a2a1ab4bb306076",
+      "seconds": 0.16
+    },
+    "Assets/Generated/Resources/Audio/sfx_clash_2.wav": {
+      "sha256": "04657173b1b66b8398a1319286661459031df6bfc7133e5bf4e4540983e57f69",
+      "seconds": 0.16
+    },
+    "Assets/Generated/Resources/Audio/sfx_end.wav": {
+      "sha256": "cd98d939395bd1fe7245701ec7a91e2aa2e767d2fe99a4b7024649b2cd4fdaab",
+      "seconds": 1.0
+    },
+    "Assets/Generated/Resources/Audio/sfx_place_1.wav": {
+      "sha256": "0062451e6d246b7cb6aadf3af0485280239f747f93b1f7aecfecbb29144a433d",
+      "seconds": 0.18
+    },
+    "Assets/Generated/Resources/Audio/sfx_place_2.wav": {
+      "sha256": "80a409aff1cfedcaf9c7f4f86f1ebda99c739b376e620b7a6f208b0bbe6cc2c9",
+      "seconds": 0.18
+    },
+    "Assets/Generated/Resources/Audio/sfx_place_3.wav": {
+      "sha256": "6e40bfd8b640fc115951d67744c7d79fb15255c7be313ae299f5bd276ae9d0fe",
+      "seconds": 0.18
+    },
+    "Assets/Generated/Resources/Audio/sfx_select.wav": {
+      "sha256": "c801581d71192339b35b80eeaf0140025bccc7a779556f919e60c9d83af6b670",
+      "seconds": 0.07
+    },
+    "Assets/Generated/Resources/Audio/sfx_topple.wav": {
+      "sha256": "29eb749d83dbb8051f8ebe120e0e80e6f930f206ea76d3e5cc193bf4b3a1004d",
+      "seconds": 0.42
+    }
+  }
+}

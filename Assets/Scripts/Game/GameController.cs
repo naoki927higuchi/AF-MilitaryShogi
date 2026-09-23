@@ -33,12 +33,27 @@ namespace MilitaryShogi.Game
         public string StatusText { get; private set; } = "";
         public event Action<ObservedMove> PlyFinished;
         public event Action GameStarted;
+        public event Action SetupStarted;
+        public AudioDirector Audio;
+        public FormationPresets Presets { get; private set; }
+
+        /// <summary>Game clock: from 対局開始 to the end of the game. Stops only while 「あそびかた」 is open.</summary>
+        public double ElapsedSeconds { get; private set; }
+
+        /// <summary>Visual events of combat animations (for checking SE sync).</summary>
+        public readonly List<KeyValuePair<string, float>> VisualEvents = new List<KeyValuePair<string, float>>();
+        /// <summary>Per topple: (fall start, topple sound start, landing) in Time.time, for the sync test.</summary>
+        public readonly List<Vector3> ToppleTimings = new List<Vector3>();
         public Camera MainCamera;
         public BoardView Board;
         public GraveyardView Graveyard;
 
-        /// <summary>While true (「あそびかた」 open) nothing advances: no input, no CPU turn, no animation.</summary>
-        public bool Paused { get; private set; }
+        [Flags] public enum PauseReason { None = 0, Help = 1, Test = 2 }
+        private PauseReason pauseReasons;
+
+        /// <summary>While true (「あそびかた」 open) nothing advances: no input, no CPU turn, no animation, no clock.</summary>
+        public bool Paused { get { return pauseReasons != PauseReason.None; } }
+        public PauseReason PauseReasons { get { return pauseReasons; } }
 
         private Transform pieceRoot;
         private readonly Dictionary<int, PieceView> pieces = new Dictionary<int, PieceView>();       // by piece id (during play)
@@ -56,9 +71,11 @@ namespace MilitaryShogi.Game
 
         public IEnumerable<PieceView> PieceViews { get { return Phase == Phase.Setup ? setupPieces.Values : pieces.Values; } }
 
-        public void Initialise(Camera cam, BoardView board, GraveyardView graveyard)
+        public void Initialise(Camera cam, BoardView board, GraveyardView graveyard, AudioDirector audio)
         {
             MainCamera = cam;
+            Audio = audio;
+            Presets = UserData.LoadPresets();
             Tooltip = new EnemyTooltip(this);
             Board = board;
             Graveyard = graveyard;
@@ -67,10 +84,13 @@ namespace MilitaryShogi.Game
             NewSetup(false);
         }
 
-        public void SetPaused(bool paused)
+        /// <summary>Test fixtures only (layout screenshots): hold the game without opening the help.</summary>
+        public void SetPaused(bool paused) { SetPause(PauseReason.Test, paused); }
+
+        public void SetPause(PauseReason reason, bool on)
         {
-            Paused = paused;
-            Time.timeScale = paused ? 0f : 1f;
+            if (on) pauseReasons |= reason; else pauseReasons &= ~reason;
+            Time.timeScale = Paused ? 0f : 1f;
         }
 
         // ------------------------------------------------------------------
@@ -95,10 +115,66 @@ namespace MilitaryShogi.Game
             }
             Session = new GameSession(Settings);
             SelectedNode = -1;
+            ElapsedSeconds = 0;
+            Phase = Phase.Setup;
             BuildSetupViews();
             if (Graveyard != null) Graveyard.Clear();
-            Phase = Phase.Setup;
             StatusText = "初期配置：自軍の駒をクリックし、移動先または交換先をクリック（置けないマスは選べません）";
+            if (SetupStarted != null) SetupStarted();
+        }
+
+        // ------------------------------------------------------------------
+        // Presets (own placement, both modes, setup only)
+        // ------------------------------------------------------------------
+
+        public void SavePreset(int slot, string name)
+        {
+            Presets.Save(slot, name, PlayerFormation);
+            UserData.SavePresets(Presets);
+        }
+
+        /// <summary>Apply a saved placement. Only the own placement changes (never CPU seeds, CPU formation or knowledge).</summary>
+        public bool LoadPreset(int slot)
+        {
+            if (Phase != Phase.Setup) return false;
+            Formation f;
+            try { f = Presets.Load(slot, Human); }
+            catch (ArgumentException e) { Debug.LogWarning("Preset rejected: " + e.Message); return false; }
+            if (f == null) return false;
+            Session.SetPlayerFormation(f);
+            SelectedNode = -1;
+            BuildSetupViews();
+            return true;
+        }
+
+        // ------------------------------------------------------------------
+        // Research reveal (研究モード「CPU駒の正体を表示」 only)
+        // ------------------------------------------------------------------
+
+        private bool revealEnemies;
+        public bool EnemiesRevealed { get { return revealEnemies; } }
+
+        /// <summary>
+        /// Shows the true faces of CPU pieces on the board. Called by Presentation with true only in
+        /// research mode with the switch on; the loss areas never reveal anything.
+        /// </summary>
+        public void SetEnemyReveal(bool on)
+        {
+            if (on == revealEnemies) return;
+            revealEnemies = on;
+            ApplyEnemyFaces();
+        }
+
+        private void ApplyEnemyFaces()
+        {
+            foreach (var kv in Phase == Phase.Setup ? setupPieces : pieces)
+            {
+                var v = kv.Value;
+                if (v.IsOwn) continue;
+                PieceType? kind = null;
+                if (revealEnemies) kind = Phase == Phase.Setup ? Session.ResearchTrueKindAtSetupNode(kv.Key) : Session.ResearchTrueKind(v.Id);
+                if (kind.HasValue) v.ShowResearchFace(kind.Value); else v.ShowBack();
+            }
         }
 
         /// <summary>おまかせ配置 from the player formation seed.</summary>
@@ -143,6 +219,7 @@ namespace MilitaryShogi.Game
                 v.PlaceAt(node);
                 setupPieces[node] = v;
             }
+            if (revealEnemies) ApplyEnemyFaces();
         }
 
         private void SetupClick(int node)
@@ -182,6 +259,7 @@ namespace MilitaryShogi.Game
             Board.ClearHighlights();
             foreach (var v in setupPieces.Values) v.SetLifted(false);
             if (node < 0) return;
+            if (Audio != null) Audio.Play(Sfx.Select);
             setupPieces[node].SetLifted(true);
             Board.Highlight(node, HighlightKind.Selected);
             foreach (int n in PlacementTargets(node)) Board.Highlight(n, HighlightKind.Placement);
@@ -211,7 +289,9 @@ namespace MilitaryShogi.Game
             }
             if (Graveyard != null) Graveyard.Sync(View);
             SelectedNode = -1;
+            ElapsedSeconds = 0;
             Phase = Phase.PlayerTurn;
+            if (revealEnemies) ApplyEnemyFaces();
             StatusText = "あなたの手番です";
             if (GameStarted != null) GameStarted();
         }
@@ -222,6 +302,8 @@ namespace MilitaryShogi.Game
 
         private void Update()
         {
+            // Clock: runs from 対局開始 until the result is decided; only 「あそびかた」 (pause) stops it.
+            if (!Paused && Session.Started && !IsFinished) ElapsedSeconds += Time.unscaledDeltaTime;
             if (Paused) return;
             UpdateHover();
             switch (Phase)
@@ -234,7 +316,7 @@ namespace MilitaryShogi.Game
                     else if (Input.GetMouseButtonDown(1)) Select(-1);
                     break;
                 case Phase.CpuThinking:
-                    if (thinking != null && thinking.IsCompleted && Time.time - thinkingSince >= (Settings.EffectsOn ? 0.35f / Settings.EffectSpeed : 0f))
+                    if (thinking != null && thinking.IsCompleted && Time.time - thinkingSince >= (Settings.Effect == EffectMode.Normal ? 0.35f : 0.15f) / Settings.EffectSpeed)
                     {
                         if (thinking.IsFaulted) { Debug.LogException(thinking.Exception); StatusText = "CPU思考エラー: " + thinking.Exception.InnerException?.Message; thinking = null; return; }
                         var report = thinking.Result;
@@ -252,9 +334,11 @@ namespace MilitaryShogi.Game
         private bool MouseOverUi()
         {
             var m = Input.mousePosition;
-            var p = new Vector2(m.x, Screen.height - m.y);
-            return UiRects.Any(r => r.Contains(p));
+            return IsOverUi(new Vector2(m.x, Screen.height - m.y));
         }
+
+        /// <summary>Whether a screen point (GUI coordinates, pixels) is covered by a UI panel this frame.</summary>
+        public bool IsOverUi(Vector2 guiPoint) { return UiRects.Any(r => r.Contains(guiPoint)); }
 
         private void UpdateHover()
         {
@@ -311,6 +395,7 @@ namespace MilitaryShogi.Game
             ShowLastMove();
             if (node < 0) return;
             var own = View.Own.First(p => p.Node == node);
+            if (Audio != null) Audio.Play(Sfx.Select);
             targets.AddRange(MoveRules.Generate(own.Type, Human, node, View.Owners));
             pieces[own.Id].SetLifted(true);
             Board.Highlight(node, HighlightKind.Selected);
@@ -348,6 +433,7 @@ namespace MilitaryShogi.Game
             if (PlyFinished != null) PlyFinished(record);
             if (Session.Match.Status == GameStatus.Finished)
             {
+                if (Audio != null) Audio.Play(Sfx.End);
                 Phase = Phase.Finished;
                 StatusText = ResultText();
                 yield break;
@@ -369,74 +455,120 @@ namespace MilitaryShogi.Game
             }
         }
 
+        private float Speed { get { return Mathf.Max(0.1f, Settings.EffectSpeed); } }
+
+        private void Mark(string name)
+        {
+            VisualEvents.Add(new KeyValuePair<string, float>(name, Time.time));
+            if (VisualEvents.Count > 2000) VisualEvents.RemoveRange(0, 500);
+        }
+
         /// <summary>
-        /// Plays one ply. Every piece kind gets the same motion and the same clash; the only
-        /// thing that differs is the publicly known result (win / lose / tie).
+        /// Plays one ply. Every piece kind gets the same motion; only the publicly known result
+        /// (which piece or pieces leave the board) differs. 通常 is a little more physical than 簡易;
+        /// both keep the essential beats: approach → hit → reaction → loser(s) fall and leave.
+        /// Sounds are started in the same frames as the matching visual events.
         /// </summary>
         private IEnumerator Animate(ObservedMove r)
         {
             var mover = pieces[r.PieceId];
-            float speed = Mathf.Max(0.1f, Settings.EffectSpeed);
-            bool fx = Settings.EffectsOn;
+            bool normal = Settings.Effect == EffectMode.Normal;
+            float speed = Speed;
             var path = r.Path.Select(BoardLayout.Node).ToList();
             bool arc = r.Jumped > 0;   // flying over pieces is visible to everyone
 
             if (r.Combat == null)
             {
-                if (fx) yield return mover.MoveAlong(path, 0.16f / speed, arc);
+                yield return mover.MoveAlong(path, (normal ? 0.16f : 0.11f) / speed, arc);
                 mover.PlaceAt(r.To);
+                Mark("land");
+                if (Audio != null) Audio.Play(Sfx.Place);
                 yield break;
             }
 
             var defender = pieces[r.Combat.DefenderId];
             Vector3 target = BoardLayout.Node(r.To);
-            if (fx)
+            Vector3 from = path.Count > 1 ? path[path.Count - 2] : BoardLayout.Node(r.From);
+            Vector3 dir = target - from;
+            dir.y = 0;
+            dir = dir.sqrMagnitude > 1e-6f ? dir.normalized : Vector3.forward;
+            var approach = new List<Vector3>(path);
+            approach[approach.Count - 1] = Vector3.Lerp(from, target, normal ? 0.45f : 0.55f);
+            yield return mover.MoveAlong(approach, (normal ? 0.16f : 0.11f) / speed, arc);
+
+            if (normal)
             {
-                var approach = new List<Vector3>(path);
-                Vector3 from = path.Count > 1 ? path[path.Count - 2] : BoardLayout.Node(r.From);
-                approach[approach.Count - 1] = Vector3.Lerp(from, target, 0.55f);
-                yield return mover.MoveAlong(approach, 0.16f / speed, arc);
-                StartCoroutine(Flash(Vector3.Lerp(mover.transform.localPosition, target, 0.5f), 0.45f / speed));
-                StartCoroutine(defender.Shake(0.4f / speed, 0.035f));
-                yield return mover.Shake(0.4f / speed, 0.035f);
+                // Wind up, then strike hard.
+                yield return mover.Slide(-dir * 0.12f, 0.12f / speed);
+                yield return mover.Slide(dir * 0.26f, 0.06f / speed);
             }
-            switch (r.Combat.Outcome)
+            Mark("contact");
+            if (Audio != null) Audio.Play(Sfx.Clash);
+            float react = (normal ? 0.34f : 0.16f) / speed;
+            float amp = normal ? 0.05f : 0.022f;
+            var outcome = r.Combat.Outcome;
+            // Reaction: the losing side shakes harder; the winner also recoils.
+            StartCoroutine(defender.Shake(react, outcome == CombatOutcome.DefenderWins ? amp * 0.5f : amp));
+            yield return mover.Shake(react, outcome == CombatOutcome.AttackerWins ? amp * 0.5f : amp);
+            if (normal) yield return new WaitForSeconds(0.1f / speed);   // 一拍
+
+            float fall = (normal ? 0.42f : 0.24f) / speed;
+            switch (outcome)
             {
                 case CombatOutcome.AttackerWins:
-                    if (fx) yield return defender.Defeat(0.35f / speed); else defender.gameObject.SetActive(false);
-                    if (fx) yield return mover.MoveAlong(new[] { target }, 0.12f / speed, false);
+                    yield return Topple(defender, dir, fall);
+                    yield return mover.MoveAlong(new[] { target }, 0.12f / speed, false);
                     mover.PlaceAt(r.To);
                     defender.Node = -1;
                     break;
                 case CombatOutcome.DefenderWins:
-                    if (fx) yield return mover.Defeat(0.35f / speed); else mover.gameObject.SetActive(false);
+                    yield return Topple(mover, -dir, fall);
                     mover.Node = -1;
                     break;
                 default:
-                    if (fx) { StartCoroutine(defender.Defeat(0.35f / speed)); yield return mover.Defeat(0.35f / speed); }
-                    else { defender.gameObject.SetActive(false); mover.gameObject.SetActive(false); }
-                    mover.Node = -1; defender.Node = -1;
+                    // Both fall, slightly staggered so the two falls can be seen and heard.
+                    StartCoroutine(Topple(defender, dir, fall));
+                    yield return new WaitForSeconds((normal ? 0.14f : 0.08f) / speed);
+                    yield return Topple(mover, -dir, fall);
+                    mover.Node = -1;
+                    defender.Node = -1;
                     break;
             }
-            if (fx) yield return new WaitForSeconds(0.25f / speed);
+            yield return new WaitForSeconds((normal ? 0.2f : 0.08f) / speed);
         }
 
-        /// <summary>Neutral clash flash (expanding ring), identical for every combat.</summary>
-        private IEnumerator Flash(Vector3 at, float seconds)
+        /// <summary>
+        /// A loser tips over away from the hit and falls onto the board, then leaves for the loss area.
+        /// The topple sound starts so that its main "falls on the board" hit coincides with the landing.
+        /// </summary>
+        private IEnumerator Topple(PieceView v, Vector3 away, float seconds)
         {
-            var mat = GameAssets.Overlay(new Color(1f, 0.95f, 0.8f, 0.9f), null, 20);
-            var ring = MeshKit.Disc("Clash", transform, at + Vector3.up * 0.25f, 0.8f, 1f, mat);
-            float t = 0;
-            while (t < seconds)
+            float landing = seconds * 0.6f;
+            float soundAt = Mathf.Max(0f, landing - AudioDirector.ToppleImpactOffset);
+            bool played = false, landed = false;
+            float t0 = Time.time, soundTime = 0, landTime = 0;
+            var fall = v.Fall(away, seconds, landing);
+            while (true)
             {
-                t += Time.deltaTime;
-                float k = t / seconds;
-                ring.transform.localScale = Vector3.one * Mathf.Lerp(0.15f, 0.75f, k);
-                mat.color = new Color(1f, 0.95f, 0.8f, 0.9f * (1 - k));
-                yield return null;
+                if (!played && Time.time - t0 >= soundAt)
+                {
+                    played = true;
+                    soundTime = Time.time;
+                    if (Audio != null) Audio.Play(Sfx.Topple);
+                }
+                if (!landed && Time.time - t0 >= landing)
+                {
+                    landed = true;
+                    landTime = Time.time;
+                    Mark("fall-landing");
+                }
+                if (!fall.MoveNext()) break;
+                yield return fall.Current;
             }
-            Destroy(ring);
-            Destroy(mat);
+            if (!played && Audio != null) { Audio.Play(Sfx.Topple); soundTime = Time.time; }
+            if (!landed) { Mark("fall-landing"); landTime = Time.time; }
+            ToppleTimings.Add(new Vector3(t0, soundTime, landTime));
+            if (ToppleTimings.Count > 1000) ToppleTimings.RemoveRange(0, 250);
         }
 
         public string ResultText()

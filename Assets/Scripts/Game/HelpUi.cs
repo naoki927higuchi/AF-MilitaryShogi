@@ -33,10 +33,19 @@ namespace MilitaryShogi.Game
             if (presentation != null && presentation.HelpOpen && Input.GetKeyDown(KeyCode.Escape)) presentation.CloseHelp();
         }
 
+        public int LastDrawFrame { get; private set; } = -1;
+
         private void OnGUI()
         {
             if (game == null || !presentation.HelpOpen) return;
+            // On any drawing error the help closes itself, so the game can never stay paused behind it.
+            UiGuard.Run("HelpUi", DrawGui, () => presentation.CloseHelp());
+        }
+
+        private void DrawGui()
+        {
             if (ui == null) ui = new UiKit();
+            if (Event.current.type == EventType.Repaint) LastDrawFrame = Time.frameCount;
             GUI.depth = -100;
             scale = UiKit.Scale;
             vw = Screen.width / scale;

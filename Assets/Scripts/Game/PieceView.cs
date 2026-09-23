@@ -158,6 +158,26 @@ namespace MilitaryShogi.Game
             meshRenderer.sharedMaterials = new[] { Face(type), SideMaterial };
         }
 
+        /// <summary>
+        /// 研究モード「CPU駒の正体を表示」 only: show a CPU piece's true face on the board. Presentation
+        /// calls this only in research mode with the switch on and reverts with <see cref="ShowBack"/>.
+        /// </summary>
+        public void ShowResearchFace(PieceType type)
+        {
+            if (IsOwn) return;
+            meshRenderer.sharedMaterials = new[] { Face(type), SideMaterial };
+        }
+
+        public void ShowBack()
+        {
+            if (IsOwn) return;
+            meshRenderer.sharedMaterials = new[] { BackMaterial, SideMaterial };
+        }
+
+        public bool ShowsBack { get { return meshRenderer.sharedMaterials[0] == BackMaterial; } }
+
+        public MeshRenderer Renderer { get { return meshRenderer; } }
+
         private static PieceView Create(Transform parent, string name, int id, int number, bool own, bool facingNorth)
         {
             var go = new GameObject(name);
@@ -228,6 +248,45 @@ namespace MilitaryShogi.Game
                 yield return null;
             }
             transform.localPosition = basePos;
+        }
+
+        /// <summary>Straight push/pull on the board plane (wind-up and strike).</summary>
+        public IEnumerator Slide(Vector3 delta, float seconds)
+        {
+            Vector3 a = transform.localPosition, b = a + delta;
+            float t = 0;
+            while (t < 1f)
+            {
+                t = Mathf.Min(1f, t + Time.deltaTime / Mathf.Max(0.01f, seconds));
+                transform.localPosition = Vector3.Lerp(a, b, Mathf.SmoothStep(0, 1, t));
+                yield return null;
+            }
+        }
+
+        /// <summary>
+        /// Loser tips over away from the hit (about the far bottom edge), lands on the board at
+        /// <paramref name="landing"/> seconds, bounces slightly, then leaves. Same for every kind.
+        /// </summary>
+        public IEnumerator Fall(Vector3 away, float seconds, float landing)
+        {
+            Vector3 p0 = transform.localPosition;
+            Quaternion r0 = transform.localRotation;
+            Vector3 axis = Vector3.Cross(Vector3.up, away).normalized;
+            float t = 0;
+            while (t < seconds)
+            {
+                t += Time.deltaTime;
+                float angle;
+                if (t < landing) { float k = t / landing; angle = 70f * k * k; }            // accelerate while tipping
+                else { float k = Mathf.Clamp01((t - landing) / (seconds - landing)); angle = 70f - 8f * Mathf.Sin(k * Mathf.PI); } // small bounce
+                float leave = Mathf.Clamp01((t - landing) / (seconds - landing));
+                transform.localRotation = Quaternion.AngleAxis(angle, axis) * r0;
+                transform.localPosition = p0 + away * 0.18f * Mathf.Min(1f, t / landing) + new Vector3(0, -0.05f * leave, 0);
+                transform.localScale = Vector3.one * (1f - 0.45f * leave * leave);
+                yield return null;
+            }
+            transform.localRotation = r0;
+            gameObject.SetActive(false);
         }
 
         /// <summary>Loser leaves the board: sinks and shrinks. Same for every kind.</summary>

@@ -51,6 +51,8 @@ namespace MilitaryShogi.Tests
                 ("1.1.1 Player facts: movement, jump, removal", PlayerFactsTests.MovementAndRemoval),
                 ("1.1.1 Player facts: combat and ambiguity", PlayerFactsTests.CombatAndAmbiguity),
                 ("1.1.1 Player facts: information boundary and soundness", PlayerFactsTests.BoundaryAndSoundness),
+                ("1.2.0 Presets: five slots, names, placement round trip", PresetTests.SlotsNamesAndRoundTrip),
+                ("1.2.0 Presets: invalid data is rejected", PresetTests.RejectsInvalidData),
                 ("Games: CPU vs CPU and CPU vs random complete; beliefs stay sound", () => GameTests.FullGames(quick)),
             };
 

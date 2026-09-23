@@ -64,9 +64,12 @@ namespace MilitaryShogi.Game
             return best;
         }
 
-        public string TextFor(PieceView piece)
+        /// <param name="revealTruth">研究モード「CPU駒の正体を表示」: show the true kind (never in 対戦).</param>
+        public string TextFor(PieceView piece, bool revealTruth = false)
         {
-            var lines = new List<string> { "<b>Enemy #" + piece.Number + "</b>（" + game.KnownFacts.Identity(piece.Id) + "）　位置 " + BoardGraph.Describe(piece.Node) };
+            var truth = revealTruth ? game.Session.ResearchTrueKind(piece.Id) : null;
+            string identity = truth.HasValue ? PieceCatalog.JapaneseName(truth.Value) + "（研究：真値表示）" : game.KnownFacts.Identity(piece.Id);
+            var lines = new List<string> { "<b>Enemy #" + piece.Number + "</b>　" + identity + "　位置 " + BoardGraph.Describe(piece.Node) };
             int moves = 0;
             foreach (var m in game.View.History)
             {
@@ -87,10 +90,11 @@ namespace MilitaryShogi.Game
             return string.Join("\n", lines);
         }
 
-        public void Draw(bool modalOpen)
+        /// <param name="enabled">対戦: the 敵駒の観測情報 setting. 研究: always true.</param>
+        public void Draw(bool modalOpen, bool revealTruth, bool enabled)
         {
             LastText = null;
-            if (modalOpen || game.View == null || game.KnownFacts == null || game.Phase == Phase.Setup || game.Phase == Phase.Animating || game.Phase == Phase.Finished) return;
+            if (!enabled || modalOpen || game.View == null || game.KnownFacts == null || game.Phase == Phase.Setup || game.Phase == Phase.Animating || game.Phase == Phase.Finished) return;
             var piece = PreviewPieceId >= 0 ? game.PieceViews.FirstOrDefault(p => p.Id == PreviewPieceId) : game.PieceAtNode(game.HoverNode);
             if (piece == null || piece.IsOwn || !piece.gameObject.activeSelf) return;
             float scale = UiKit.Scale;
@@ -100,7 +104,7 @@ namespace MilitaryShogi.Game
             if (ui == null) ui = new UiKit();
             var screen = new Rect(8, 8, Screen.width / scale - 16, Screen.height / scale - 16);
             float width = Mathf.Min(370, screen.width);
-            LastText = TextFor(piece);
+            LastText = TextFor(piece, revealTruth);
             float height = Mathf.Min(screen.height, ui.Small.CalcHeight(new GUIContent(LastText), width - 24) + 20);
             LastAnchor = ScreenBounds(game.MainCamera, piece.WorldBounds, scale);
             LastRect = Place(LastAnchor, new Vector2(width, height), screen, panels);
