@@ -1,0 +1,14 @@
+{
+    "name": "MilitaryShogi.Rules",
+    "rootNamespace": "MilitaryShogi.Rules",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

@@ -1,0 +1,37 @@
+# Unity
+/Library/
+/Temp/
+/Obj/
+/Logs/
+/UserSettings/
+/MemoryCaptures/
+/.vs/
+/.vscode/
+/.idea/
+/*.csproj
+/*.sln
+/*.slnx
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# Build output, logs, auto-test results (not source)
+/bin/
+/Builds/
+/build/
+
+# .NET test build output
+/Tests/**/bin/
+/Tests/**/obj/
+
+# Python
+__pycache__/
+
+# Secrets / local
+/.local/
+*.keystore
+*.jks
+
+# Development ZIPs (release ZIPs go to Distribution/ only when publishing)
+*.zip
+!/Distribution/*.zip

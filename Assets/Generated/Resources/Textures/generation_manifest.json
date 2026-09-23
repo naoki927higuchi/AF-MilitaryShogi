@@ -1,0 +1,62 @@
+{
+  "generator": "Tools/TextureGen/generate_textures.py",
+  "inputs": {
+    "軍人将棋無地駒.png": "cea31fa820789ab88ac0078c2684382448bc6b12784aee9a9d841c76460492fc",
+    "軍人将棋アイコン素材集.png": "bf0ea95980f5b60abf394bce7a3690a8392b5abe3d23f6a393e62886e5bca84e",
+    "濃紺木目.png": "fc091850e274abfc05a91b812e50b1ea690e6dbf433664edc9050aa69f4a0d6d"
+  },
+  "font": {
+    "file": "KsoTouryu.otf",
+    "family": "KsoTouryu Regular",
+    "note": "Installed font used for rendering only; not redistributed."
+  },
+  "face_size": [
+    512,
+    572
+  ],
+  "outline_uv": [
+    [
+      0.5,
+      0.0
+    ],
+    [
+      0.856,
+      0.137
+    ],
+    [
+      1.0,
+      1.0
+    ],
+    [
+      0.0,
+      1.0
+    ],
+    [
+      0.144,
+      0.137
+    ]
+  ],
+  "outputs": {
+    "Assets/Generated/Resources/Textures/Pieces/piece_General.png": "cb57fb05a6ac55d39ab09e388fe8ea83252c80af88c88507c5ad859eff4b6355",
+    "Assets/Generated/Resources/Textures/Pieces/piece_LieutenantGeneral.png": "e45f25332cbe0cf4a517b21e733b61eb70cc3d030083dfb948ba1d55b39f8226",
+    "Assets/Generated/Resources/Textures/Pieces/piece_MajorGeneral.png": "5e1854cf3e786cd26d3d6bb29abd1af813701b5740701e8e442d449c55c8ae59",
+    "Assets/Generated/Resources/Textures/Pieces/piece_Colonel.png": "d481d150d11ff67c7dce5ae55c31f24c73ef28856790092d8c76abb7813b7dfe",
+    "Assets/Generated/Resources/Textures/Pieces/piece_LieutenantColonel.png": "8d71c84fc77add5b8db8794f29139639b01ff101572a92155b3fb27c2f6d60ce",
+    "Assets/Generated/Resources/Textures/Pieces/piece_Major.png": "4282201aa3a26c1cd9b2c11ddf85fa53cb959afb50c5b977fa253207181b71ea",
+    "Assets/Generated/Resources/Textures/Pieces/piece_Captain.png": "0526d9c27709dabb7bff75eecd9638a9bbb7143ef3e41df7877c56fa220e012a",
+    "Assets/Generated/Resources/Textures/Pieces/piece_FirstLieutenant.png": "51fc8dcd4e79ad16edfc156b8dfba8d697c1c72b0e56b3ad41d98c9b85800168",
+    "Assets/Generated/Resources/Textures/Pieces/piece_SecondLieutenant.png": "2d1c25e0421584b294f8a56128539961097d8743f8733f697ef5c2d144b6e607",
+    "Assets/Generated/Resources/Textures/Pieces/piece_Airplane.png": "8aa96461590190758094e15594febbd9fdbf769f1eec8ff6ea16d8d325eab16a",
+    "Assets/Generated/Resources/Textures/Pieces/piece_Tank.png": "f2ecd978e9daefc20ff5209752c07e22714b593fdf4bda180307f1dc4435d52a",
+    "Assets/Generated/Resources/Textures/Pieces/piece_Cavalry.png": "b0d75645946957e291cbff63cdfb41a260280f9435a5dee9549ccbf4999d8820",
+    "Assets/Generated/Resources/Textures/Pieces/piece_Engineer.png": "3a0b2582b9b52a0f7642bd6ea134441b64fa46e9a81f40b3ac1f4b6aabdbcda1",
+    "Assets/Generated/Resources/Textures/Pieces/piece_Spy.png": "2f370af1a1543f19253c28451dd0208a587c527b1063ee0778e6b7d0cfef07b2",
+    "Assets/Generated/Resources/Textures/Pieces/piece_Mine.png": "c6ca76f49c602ec23f03d4e0e22c1bcb01a8d2e8f9bb57a6c81f43b9bc680a5f",
+    "Assets/Generated/Resources/Textures/Pieces/piece_Flag.png": "aef433dbfc1f5cda20bf541de3cd50bdb31405e31af2957d93ae5a31a5e5d5d3",
+    "Assets/Generated/Resources/Textures/Pieces/piece_back.png": "640af9944d130f33b47223a4676e61906be806e2dc9ea53cc31529a696538682",
+    "Assets/Generated/Resources/Textures/Pieces/piece_side.png": "a040f039bc0497b2c504cba5e6230444f71a3ceca357a3274db7699634762853",
+    "Assets/Generated/Resources/Textures/Board/board_wood.png": "873c5d392131c07e28bc3b4f31c02845465bdf96d19f476ee5062f9e413a7b84",
+    "Assets/Generated/Resources/Textures/Board/table_wood.png": "ecbaa481bca92f78a68c24d126c704c16ee24e6a0c386299f54910418d2c0f26",
+    "Assets/Generated/Resources/Textures/Board/label_hq.png": "5d503b8731c2f511732172c0ea5450434fea2d17d0e8ec3ee2983cca33a5f896"
+  }
+}

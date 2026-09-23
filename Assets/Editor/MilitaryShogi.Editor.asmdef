@@ -1,0 +1,14 @@
+{
+    "name": "MilitaryShogi.Editor",
+    "rootNamespace": "MilitaryShogi.Editor",
+    "references": ["MilitaryShogi.Rules", "MilitaryShogi.Game"],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

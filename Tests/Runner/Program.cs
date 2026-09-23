@@ -1,0 +1,70 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+
+namespace MilitaryShogi.Tests
+{
+    /// <summary>Minimal self-contained test runner (no external packages). Exit code 0 = all passed.</summary>
+    internal static class Program
+    {
+        private static int checks;
+        private static readonly List<string> failures = new List<string>();
+        public static readonly List<string> Metrics = new List<string>();
+
+        public static void Check(bool condition, string message)
+        {
+            checks++;
+            if (!condition) throw new Exception(message);
+        }
+
+        private static int Main(string[] args)
+        {
+            bool quick = args.Contains("--quick");
+            if (args.Contains("--diag")) { Diagnostics.Run(); return 0; }
+            if (args.Length == 2 && args[0] == "--trace") { Diagnostics.Trace(int.Parse(args[1])); return 0; }
+            var suites = new List<(string, Action)>
+            {
+                ("Rules: army composition", RulesTests.ArmyComposition),
+                ("Rules: combat table vs. textual rules", RulesTests.CombatTableMatchesRules),
+                ("Rules: board graph", RulesTests.BoardGraphStructure),
+                ("Rules: movement per class", RulesTests.MovementScenarios),
+                ("Rules: formation constraints & seed reproducibility", RulesTests.Formations),
+                ("Rules: manual placement edits", RulesTests.ManualEdits),
+                ("Engine: flag / mine / airplane combat through the judge", EngineTests.JudgeScenarios),
+                ("Engine: headquarters capture only by 大将〜少佐", EngineTests.HeadquartersRule),
+                ("Engine: legal-move invariants over random games", EngineTests.RandomGameInvariants),
+                ("Boundary: CPU assembly cannot reach the engine", BoundaryTests.AssemblyReferences),
+                ("Boundary: observation types carry no enemy kinds", BoundaryTests.ObservationTypes),
+                ("Boundary: CPU source scan", BoundaryTests.SourceScan),
+                ("Boundary: decisions independent of hidden enemy kinds", BoundaryTests.HiddenKindsDoNotChangeDecision),
+                ("CPU: knowledge updates from observations", CpuTests.KnowledgeScenarios),
+                ("CPU: formation style & seed", CpuTests.FormationStyles),
+                ("CPU: decision seed reproducibility", CpuTests.DecisionSeedReproducibility),
+                ("Games: CPU vs CPU and CPU vs random complete; beliefs stay sound", () => GameTests.FullGames(quick)),
+            };
+
+            var total = Stopwatch.StartNew();
+            foreach (var (name, run) in suites)
+            {
+                var sw = Stopwatch.StartNew();
+                int before = checks;
+                try
+                {
+                    run();
+                    Console.WriteLine($"PASS  {name}  ({checks - before} checks, {sw.ElapsedMilliseconds} ms)");
+                }
+                catch (Exception e)
+                {
+                    failures.Add(name);
+                    Console.WriteLine($"FAIL  {name}: {e.Message}");
+                    Console.WriteLine(e.StackTrace);
+                }
+            }
+            Console.WriteLine();
+            foreach (var m in Metrics) Console.WriteLine("METRIC " + m);
+            Console.WriteLine($"{checks} checks, {failures.Count} failed suites, {total.Elapsed.TotalSeconds:0.0} s");
+            return failures.Count == 0 ? 0 : 1;
+        }
+    }
+}

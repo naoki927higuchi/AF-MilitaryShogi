@@ -1,0 +1,14 @@
+{
+    "name": "MilitaryShogi.Game",
+    "rootNamespace": "MilitaryShogi.Game",
+    "references": ["MilitaryShogi.Rules", "MilitaryShogi.Observation", "MilitaryShogi.Engine", "MilitaryShogi.Cpu"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
