@@ -64,3 +64,16 @@
 ### 改善候補（2026-09-24 人間受入より、今回は改修しない）
 
 - Android：自駒をタップ後、移動先を狙って移動できないマスをタップすると選択が解除される。画面サイズ上やむを得ない面があり、再選択で済むため致命的ではない。対策案：移動できないマスへのタップでは選択を維持し、解除は同じ駒の再タップ・盤外タップに限る／移動先の当たり判定を少し広げる（最寄りの移動先へ吸着）。
+
+## フォント使用許諾の監査（KSO闘龍、2026-09-24）
+
+- 製品：闘龍書体（KSO闘龍・～N同梱）Windows版、昭和書体/コーエーサインワークス（販売：デザインポケット）。正規購入品（購入情報は記録しない）。
+- 一次資料：公式商品ページの「使用許諾」 https://designpocket.jp/font/detail/23984 （2026-09-24 閲覧）。要点：一般商用利用可、「ゲームソフトでのご利用」「その他、画像化して配布するコンテンツでのご利用」可。※2 ゲーム等では画像データを作成して使うのは可、フォントの組み込み・フォントの代替として機能するものの搭載は不可。文字情報・フォント代替データ・二次的フォントの第三者への頒布は禁止。1ライセンス/1PC（1台のデバイスにインストール）。第三者へ納品する場合は、字形の転用禁止を伝え、昭和書体の書体であることを伝える。書体名を変えて表示しない。
+- 利用実態：開発PC（ライセンス対象の1台）にインストール済みのKsoTouryu.otfを `Tools/TextureGen/generate_textures.py` が生成時にだけ読み、固定の17語（駒名16種＋「総司令部」）を木目・星・アイコンと合成したPNG（`Assets/Generated/Resources/Textures/Pieces/piece_*.png`、`Board/label_hq.png`）にする。ゲームは完成画像を表示するだけで、実行時にKSO闘龍を必要とせず参照もしない（UI文字はWindowsのYu Gothic等、Androidの端末CJKフォント）。任意文字列をKSO闘龍で描く機能・フォントを取り出す機能・1文字単位のグリフ画像はない。Unityビルドは生成スクリプトを実行しない（コミット済みPNGを使用）。CI・Gitリモートなし。
+- 混入監査（フォント拡張子 otf/ttf/ttc/woff/woff2/eot、ファイル名 KSO/Touryu/闘龍、ヘッダー署名・埋め込みsfnt・名前文字列の内容走査）：
+  - プロジェクトツリー全体（Git管理外のLibrary・Builds・bin含む）：フォントファイル0件。
+  - Windows配布ZIP `Distribution/AF-MilitaryShogi-1.3.0-Windows.zip`（162メンバー）・`bin/Release-1.3.0`：フォントなし。
+  - Android APK `bin/Android/Release-1.3.0/AF-MilitaryShogi-1.3.0.apk`（445メンバー、assets/bin/Data含む）：KSO闘龍なし。埋め込みフォントはUnity標準の `unity default resources` 内の Liberation Sans（約50KB）のみ。
+  - Git：HEAD・index・全9コミット・全477オブジェクト（到達不能含む）の内容を走査し、フォント本体なし。LFSなし。
+  - 名前文字列 "KsoTouryu" が見つかったのは、生成スクリプト・素材README・`generation_manifest.json`（テキスト）とその各版のみ。manifestは `Resources` 配下のためビルドにもテキストとして入っている（フォント名の記載でフォントデータではない）。
+- 判定：A（問題なし）。予防上の改善候補（未実施）：生成マニフェストを `Resources` の外へ移す／`.gitignore` にフォント拡張子と `Reference/UserProvided/Fonts/` を追加（現状は置けばコミット可能）／クレジット表記を「昭和書体 闘龍（KSO闘龍）」とする。
