@@ -12,14 +12,14 @@ namespace MilitaryShogi.Game
     /// Right: 敵軍の損失 – all show the common back, in the order they were removed. The slot of an
     /// enemy piece is a function of its death index only; no kind is ever passed to this class for
     /// enemy pieces, so the layout cannot reveal anything but the count.
-    /// Both sides use the same grid: 4 columns x up to 8 rows, filled from the top-left to the right.
+    /// Both sides use the same grid: 3 columns x up to 11 rows, filled from the top-left to the right.
     /// </summary>
     public sealed class GraveyardView : MonoBehaviour
     {
-        public const int Columns = 4;
-        public const int Rows = 8;
-        public const float Scale = 0.6f;
-        private const float Dx = 0.6f, Dz = 0.7f, Gap = 0.7f, TopZ = 1.4f;   // closer to the camera than the board centre, so they read well
+        public const int Columns = 3;
+        public const int Rows = 11;
+        public const float Scale = 0.78f;
+        private const float Dx = 0.73f, Dz = 0.82f, Gap = 0.8f, TopZ = 3.8f;   // closer to the camera than the board centre, so they read well
 
         private readonly List<PieceView> own = new List<PieceView>();
         private readonly List<PieceView> enemy = new List<PieceView>();
@@ -53,8 +53,10 @@ namespace MilitaryShogi.Game
             {
                 var first = Slot(0, e);
                 var last = Slot(Columns * Rows - 1, e);
-                yield return new Vector3(first.x - 0.3f, 0, TopZ + 0.9f);
-                yield return new Vector3(last.x + 0.3f, 0, last.z - 0.35f);
+                foreach (float x in new[] { first.x - 0.4f, last.x + 0.4f })
+                    foreach (float z in new[] { TopZ + 0.9f, last.z - 0.45f })
+                        foreach (float y in new[] { 0f, PieceMeshFactory.BaseHeight * Scale })
+                            yield return new Vector3(x, y, z);
             }
         }
 

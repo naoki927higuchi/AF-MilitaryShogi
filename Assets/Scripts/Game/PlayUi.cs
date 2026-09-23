@@ -8,7 +8,7 @@ namespace MilitaryShogi.Game
     /// 対戦モード: the screen for simply playing. Top: title logo, TURN, whose turn, あそびかた / 設定 /
     /// 新規対局. Left and right of the board: 自軍の損失 / 敵軍の損失 (3D pieces on the table, see
     /// <see cref="GraveyardView"/>). Bottom: one status line. No seeds, candidate moves, evaluations,
-    /// probabilities, enemy numbers or observation logs are shown here.
+    /// probabilities are shown. Enemy hover shows public observations only.
     /// </summary>
     public sealed class PlayUi : MonoBehaviour
     {
@@ -22,6 +22,7 @@ namespace MilitaryShogi.Game
         /// <summary>Where the logo was drawn last frame (screen pixels, GUI coordinates) – for the auto-test.</summary>
         public Rect LogoScreenRect { get; private set; }
         public Rect[] HeadingScreenRects { get; private set; } = new Rect[2];
+        public int ResultDrawCount { get; private set; }
         public Texture2D Logo { get { return logo; } }
 
         public void Bind(GameController controller, Presentation presentation)
@@ -51,13 +52,13 @@ namespace MilitaryShogi.Game
             game.UiRects.Clear();
 
             DrawLossHeadings();
-            DrawPopups();
             DrawTopBar();
             DrawStatusBar();
             if (game.Phase == Phase.Setup) DrawSetup();
             if (game.Phase == Phase.Finished) DrawResult();
             if (showSettings) DrawSettings();
             if (confirmNew) DrawConfirmNew();
+            game.Tooltip.Draw(presentation.HelpOpen || showSettings || confirmNew);
         }
 
         private Rect Region(Rect r)
@@ -78,7 +79,7 @@ namespace MilitaryShogi.Game
                 GUI.DrawTexture(r, logo, ScaleMode.ScaleToFit, true);
                 LogoScreenRect = new Rect(r.x * scale, r.y * scale, r.width * scale, r.height * scale);
             }
-            float x = 230;
+            float x = Mathf.Max(250, LogoScreenRect.xMax / scale + 24);
             if (game.Phase == Phase.Setup)
                 GUI.Label(new Rect(x, 20, 300, 32), "初期配置", ui.Big);
             else
@@ -129,28 +130,15 @@ namespace MilitaryShogi.Game
             }
         }
 
-        private void DrawPopups()
-        {
-            var cam = game.MainCamera;
-            if (cam == null) return;
-            foreach (var p in game.Popups)
-            {
-                Vector3 sp = cam.WorldToScreenPoint(p.World);
-                if (sp.z < 0) continue;
-                var r = new Rect(sp.x / scale - 80, (Screen.height - sp.y) / scale - 40, 160, 40);
-                GUI.Label(new Rect(r.x + 2, r.y + 2, r.width, r.height), p.Text, new GUIStyle(ui.Popup) { normal = { textColor = new Color(0, 0, 0, 0.8f) } });
-                GUI.Label(r, p.Text, new GUIStyle(ui.Popup) { normal = { textColor = p.Color } });
-            }
-        }
-
         /// <summary>Before the game: CPU strength and temperament, おまかせ配置, 対局開始. Shown over the (still empty) right loss area.</summary>
         private void DrawSetup()
         {
-            float w = 300, h = 470;
+            float w = 300, h = 570;
             var r = Region(new Rect(vw - w - 16, 88, w, h));
             GUILayout.BeginArea(r, ui.Panel);
             GUILayout.Label("対局の準備", ui.Header);
-            GUILayout.Space(6);
+            GUILayout.Space(12);
+            GUILayout.Label("CPU設定", ui.Header);
             GUILayout.Label("CPUの強さ", ui.Small);
             GUILayout.BeginHorizontal();
             foreach (CpuStrength s in new[] { CpuStrength.Weak, CpuStrength.Normal, CpuStrength.Strong })
@@ -168,13 +156,16 @@ namespace MilitaryShogi.Game
                     game.Settings.Temperament = t;
                     game.RefreshCpu();
                 }
-            GUILayout.Space(10);
+            GUILayout.Space(22);
+            GUILayout.Label("自軍の配置", ui.Header);
+            GUILayout.Label("あなたの駒を並べ直します", ui.Small);
             if (GUILayout.Button("おまかせ配置", ui.Button, GUILayout.Height(34)))
             {
                 game.Settings.PlayerFormationSeed = Random.Range(1, 1000000);
                 game.AutoArrange();
             }
             GUILayout.FlexibleSpace();
+            GUILayout.Label("対局開始", ui.Header);
             if (GUILayout.Button("対局開始", ui.BigButton, GUILayout.Height(48))) game.StartGame();
             GUILayout.EndArea();
         }
@@ -214,6 +205,7 @@ namespace MilitaryShogi.Game
 
         private void DrawResult()
         {
+            if (Event.current.type == EventType.Repaint) ResultDrawCount++;
             var r = Region(new Rect(vw / 2 - 230, vh / 2 - 80, 460, 150));
             GUI.Box(r, GUIContent.none, ui.Panel);
             GUI.Label(new Rect(r.x, r.y + 18, r.width, 44), game.ResultText(), new GUIStyle(ui.Big) { alignment = TextAnchor.MiddleCenter });

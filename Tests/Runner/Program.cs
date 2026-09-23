@@ -48,6 +48,9 @@ namespace MilitaryShogi.Tests
                 ("1.1.0 Boundary: 弱/強 and every temperament stay blind to hidden kinds", ProfileTests.ProfilesStayBlind),
                 ("1.1.0 Help: combat chart equals the Judge", ProfileTests.HelpCombatMatchesJudge),
                 ("1.1.0 Help: movement diagrams equal the move generator", ProfileTests.HelpMovementMatchesRules),
+                ("1.1.1 Player facts: movement, jump, removal", PlayerFactsTests.MovementAndRemoval),
+                ("1.1.1 Player facts: combat and ambiguity", PlayerFactsTests.CombatAndAmbiguity),
+                ("1.1.1 Player facts: information boundary and soundness", PlayerFactsTests.BoundaryAndSoundness),
                 ("Games: CPU vs CPU and CPU vs random complete; beliefs stay sound", () => GameTests.FullGames(quick)),
             };
 

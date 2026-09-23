@@ -14,11 +14,13 @@ $prints = @{}
 foreach ($run in @(@{ Name = 'A'; Extra = @() }, @{ Name = 'B'; Extra = @('-toggleModes') })) {
     $out = Join-Path $root $run.Name
     New-Item -ItemType Directory -Force -Path $out | Out-Null
-    $p = Start-Process -FilePath $Exe -ArgumentList (@('-autotest', $out, '-seeds', $Seeds, '-logFile', (Join-Path $out 'player.log')) + $run.Extra) -PassThru -Wait
+    $playerArgs = @('-autotest', $out, '-seeds', $Seeds, '-logFile', (Join-Path $out 'player.log')) + $run.Extra
+    & $Exe @playerArgs | Out-Host
+    $playerExitCode = $LASTEXITCODE
     $report = Join-Path $out 'autotest_report.txt'
     Get-Content -LiteralPath $report -TotalCount 10 -Encoding UTF8
     $prints[$run.Name] = (Select-String -LiteralPath $report -Pattern '^FINAL_FINGERPRINT=(.*)$').Matches[0].Groups[1].Value
-    if ($p.ExitCode -ne 0) { $failed = $true; Write-Host "Run $($run.Name) failed (exit $($p.ExitCode))" }
+    if ($playerExitCode -ne 0) { $failed = $true; Write-Host "Run $($run.Name) failed (exit $($playerExitCode))" }
 }
 if ($prints['A'] -ne $prints['B']) { $failed = $true; Write-Host "Mode toggling changed the game: $($prints['A']) vs $($prints['B'])" }
 else { Write-Host "Fingerprint with and without mode toggling: $($prints['A']) (identical)" }

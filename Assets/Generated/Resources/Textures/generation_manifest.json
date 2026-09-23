@@ -12,6 +12,13 @@
     "family": "KsoTouryu Regular",
     "note": "Installed font used for rendering only; not redistributed."
   },
+  "logo_crop": [
+    0,
+    0,
+    2172,
+    620
+  ],
+  "logo_note": "Game-only two-line crop; UserProvided original unchanged",
   "face_size": [
     512,
     572
@@ -60,7 +67,7 @@
     "Assets/Generated/Resources/Textures/Board/board_wood.png": "873c5d392131c07e28bc3b4f31c02845465bdf96d19f476ee5062f9e413a7b84",
     "Assets/Generated/Resources/Textures/Board/table_wood.png": "ecbaa481bca92f78a68c24d126c704c16ee24e6a0c386299f54910418d2c0f26",
     "Assets/Generated/Resources/Textures/Board/label_hq.png": "5d503b8731c2f511732172c0ea5450434fea2d17d0e8ec3ee2983cca33a5f896",
-    "Assets/Generated/Resources/Textures/UI/title_logo.png": "d031b62c3246321e9dfb220655f3ae93ab803985225d10fe6d3cbab135aa5bae",
+    "Assets/Generated/Resources/Textures/UI/title_logo.png": "5bbd2a599239b7018a35dbba9561875d2f7b4a1f507ab8418eeeffd914091f3a",
     "Assets/Generated/Icons/app_icon_16.png": "a306de9ebed05be9c8e23760ff580333a7f820c156cdf0d39d24532f8a9556ff",
     "Assets/Generated/Icons/app_icon_24.png": "694ca1b86193451141882bc1ce0b36f0abd7fc0a55f13fb846bcf3f2f7501e0a",
     "Assets/Generated/Icons/app_icon_32.png": "65f57165b31f0c9d9d87f9bc161e3ab3dace39281dcacef77df7cdfa1097b12b",

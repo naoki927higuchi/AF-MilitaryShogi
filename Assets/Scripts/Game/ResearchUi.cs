@@ -124,7 +124,7 @@ namespace MilitaryShogi.Game
             else DrawInfoPanel();
             if (showHistory) DrawHistory();
             if (showMonitor) DrawMonitor();
-            DrawHoverInfo();
+            game.Tooltip.Draw(presentation.HelpOpen);
             if (game.Phase == Phase.Finished) DrawResult();
         }
 
@@ -165,13 +165,14 @@ namespace MilitaryShogi.Game
 
         private void DrawSetupPanel()
         {
-            var r = Region(new Rect(8, 52, LeftColumn - 16, 640));
+            var r = Region(new Rect(8, 52, LeftColumn - 16, Mathf.Min(760, vh - 64)));
             GUILayout.BeginArea(r, panel);
-            GUILayout.Label("対局設定", header);
+            GUILayout.Label("自軍の配置", header);
             GUILayout.Space(4);
             SeedRow("Player Formation Seed", ref pSeed, v => { game.Settings.PlayerFormationSeed = v; game.AutoArrange(); });
             GUILayout.Label("自軍おまかせ配置の思想: " + FormationStyles.JapaneseName(game.PlayerStyle), small);
             GUILayout.Space(6);
+            GUILayout.Label("CPU設定", header);
             SeedRow("CPU Formation Seed", ref cSeed, v => { game.Settings.CpuFormationSeed = v; game.RefreshCpu(); });
             SeedRow("CPU Decision Seed", ref dSeed, v => { game.Settings.CpuDecisionSeed = v; game.RefreshCpu(); });
             GUILayout.Space(6);
@@ -191,11 +192,13 @@ namespace MilitaryShogi.Game
             if (strength != (int)game.Settings.Strength) { game.Settings.Strength = (CpuStrength)strength; game.RefreshCpu(); }
             int temper = GUILayout.SelectionGrid(2 - game.Settings.Temperament, Enumerable.Range(0, 5).Select(i => CpuProfile.TemperamentName(2 - i)).ToArray(), 3, button);
             if (temper != 2 - game.Settings.Temperament) { game.Settings.Temperament = 2 - temper; game.RefreshCpu(); }
-            GUILayout.Space(8);
+            GUILayout.Space(16);
+            GUILayout.Label("自軍の配置", header);
             if (GUILayout.Button("おまかせ配置（Player Seedで再配置）", button, GUILayout.Height(30))) game.AutoArrange();
             GUILayout.Space(4);
             GUILayout.Label("自軍の駒をクリック → 移動先／交換先をクリック。青いマスだけが置けるマスです（地雷・軍旗は突入口に、軍旗は最後列に置けません）。", small);
             GUILayout.FlexibleSpace();
+            GUILayout.Label("対局開始", header);
             if (GUILayout.Button("対局開始", button, GUILayout.Height(40))) game.StartGame();
             GUILayout.EndArea();
         }
@@ -238,37 +241,6 @@ namespace MilitaryShogi.Game
             GUILayout.EndArea();
         }
 
-        private void DrawHoverInfo()
-        {
-            if (game.View == null || game.Phase == Phase.Setup) return;
-            var piece = game.PieceAtNode(game.HoverNode);
-            if (piece == null || piece.IsOwn) return;
-            var lines = new List<string> { "<b>Enemy #" + piece.Number + "</b>（正体不明）　位置 " + BoardGraph.Describe(piece.Node) };
-            int moves = 0;
-            foreach (var m in game.View.History)
-            {
-                if (m.PieceId == piece.Id)
-                {
-                    moves++;
-                    string what = BoardGraph.Describe(m.From) + "→" + BoardGraph.Describe(m.To) + (m.Jumped > 0 ? "（" + m.Jumped + "枚飛び越え）" : m.Path.Length > 1 ? "（" + m.Path.Length + "マス）" : "");
-                    lines.Add("TURN " + m.Ply + "  移動 " + what);
-                }
-                if (m.Combat != null && (m.Combat.AttackerId == piece.Id || m.Combat.DefenderId == piece.Id))
-                {
-                    var rec = game.Combats.FirstOrDefault(c => c.Ply == m.Ply);
-                    if (rec != null) lines.Add("TURN " + m.Ply + "  戦闘: 自軍" + PieceCatalog.JapaneseName(rec.OwnType) + "(#" + rec.OwnNumber + ")と → " + ResultForPlayer(rec));
-                }
-            }
-            if (moves == 0) lines.Add("まだ一度も動いていない");
-            if (lines.Count > 12) lines = lines.Take(1).Concat(lines.Skip(lines.Count - 11)).ToList();
-            var mouse = Input.mousePosition;
-            float x = mouse.x / scale + 18, y = (Screen.height - mouse.y) / scale + 10;
-            float h = 20 + lines.Count * 18;
-            var r = new Rect(Mathf.Min(x, vw - 330), Mathf.Min(y, vh - h - 4), 320, h);
-            GUI.Box(r, GUIContent.none, panel);
-            GUI.Label(new Rect(r.x + 10, r.y + 6, r.width - 20, r.height), string.Join("\n", lines), small);
-        }
-
         private static string ResultForPlayer(CombatRecord c)
         {
             return c.Tie ? "相打ち" : c.PlayerWon ? "自軍勝利" : "自軍敗北";
@@ -279,14 +251,14 @@ namespace MilitaryShogi.Game
             float w = LeftColumn - 16, h = Mathf.Max(200, vh - 52 - 210 - 18);
             var r = Region(new Rect(8, vh - h - 8, w, h));
             GUILayout.BeginArea(r, panel);
-            GUILayout.Label("戦闘履歴（敵駒の正体は表示されません）", header);
+            GUILayout.Label("戦闘履歴（公開情報からの判明のみ）", header);
             historyScroll = GUILayout.BeginScrollView(historyScroll);
             if (game.Combats.Count == 0) GUILayout.Label("まだ戦闘はありません", small);
             foreach (var c in Enumerable.Reverse(game.Combats))
             {
                 GUILayout.BeginVertical(GUI.skin.box);
                 GUILayout.Label("<b>TURN " + c.Ply + "</b>　" + (c.PlayerAttacked ? "自軍の攻撃" : "敵軍の攻撃"), small);
-                GUILayout.Label("自軍：" + PieceCatalog.JapaneseName(c.OwnType) + "（#" + c.OwnNumber + "）　敵軍：Enemy #" + c.EnemyNumber + "（不明）", small);
+                GUILayout.Label("自軍：" + PieceCatalog.JapaneseName(c.OwnType) + "（#" + c.OwnNumber + "）　敵軍：Enemy #" + c.EnemyNumber + "（" + game.KnownFacts.Identity(game.View.Enemy.First(e => e.Number == c.EnemyNumber).Id) + "）", small);
                 string res = ResultForPlayer(c);
                 string color = c.Tie ? "#ffd966" : c.PlayerWon ? "#88ff99" : "#ff8877";
                 GUILayout.Label("結果：<color=" + color + ">" + res + "</color>", small);
@@ -314,16 +286,6 @@ namespace MilitaryShogi.Game
                     style.normal.textColor = v.IsOwn ? new Color(0.7f, 0.88f, 1f) : new Color(1f, 0.78f, 0.7f);
                     GUI.Label(r, "#" + v.Number, style);
                 }
-            }
-            foreach (var p in game.Popups)
-            {
-                Vector3 sp = cam.WorldToScreenPoint(p.World);
-                if (sp.z < 0) continue;
-                var r = new Rect(sp.x / scale - 80, (Screen.height - sp.y) / scale - 40, 160, 40);
-                var shadow = new GUIStyle(popup) { normal = { textColor = new Color(0, 0, 0, 0.8f) } };
-                GUI.Label(new Rect(r.x + 2, r.y + 2, r.width, r.height), p.Text, shadow);
-                var st = new GUIStyle(popup) { normal = { textColor = p.Color } };
-                GUI.Label(r, p.Text, st);
             }
         }
 

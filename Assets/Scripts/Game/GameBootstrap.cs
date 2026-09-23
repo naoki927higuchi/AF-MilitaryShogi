@@ -11,7 +11,7 @@ namespace MilitaryShogi.Game
     /// </summary>
     public sealed class GameBootstrap : MonoBehaviour
     {
-        public const string Version = "1.1.0";
+        public const string Version = "1.1.1";
 
         private void Awake()
         {

@@ -174,6 +174,8 @@ namespace MilitaryShogi.Game
             return v;
         }
 
+        public Bounds WorldBounds { get { return meshRenderer.bounds; } }
+
         public Material[] Materials { get { return meshRenderer.sharedMaterials; } }
 
         public void PlaceAt(int node)

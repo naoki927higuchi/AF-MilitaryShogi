@@ -12,14 +12,6 @@ namespace MilitaryShogi.Game
 {
     public enum Phase { Setup, PlayerTurn, CpuThinking, Animating, Finished }
 
-    public sealed class Popup
-    {
-        public Vector3 World;
-        public string Text;
-        public Color Color;
-        public float Until;
-    }
-
     /// <summary>
     /// Game flow for human (South) vs CPU (North): input, CPU turns, animation. All game data lives
     /// in <see cref="GameSession"/>; the human's screen is driven only by the human's PlayerView and
@@ -36,7 +28,8 @@ namespace MilitaryShogi.Game
         public Phase Phase { get; private set; }
         public int SelectedNode { get; private set; } = -1;
         public int HoverNode { get; private set; } = -1;
-        public readonly List<Popup> Popups = new List<Popup>();
+        public PlayerKnownFacts KnownFacts { get; private set; }
+        public EnemyTooltip Tooltip { get; private set; }
         public string StatusText { get; private set; } = "";
         public event Action<ObservedMove> PlyFinished;
         public event Action GameStarted;
@@ -66,6 +59,7 @@ namespace MilitaryShogi.Game
         public void Initialise(Camera cam, BoardView board, GraveyardView graveyard)
         {
             MainCamera = cam;
+            Tooltip = new EnemyTooltip(this);
             Board = board;
             Graveyard = graveyard;
             pieceRoot = new GameObject("Pieces").transform;
@@ -88,7 +82,7 @@ namespace MilitaryShogi.Game
         {
             StopAllCoroutines();
             thinking = null;
-            Popups.Clear();
+            KnownFacts = null;
             if (randomizeSeeds)
             {
                 // Seed choice is presentation-side randomness; the game itself only uses DeterministicRandom.
@@ -201,6 +195,7 @@ namespace MilitaryShogi.Game
         {
             if (Phase != Phase.Setup) return;
             Session.Start();
+            KnownFacts = new PlayerKnownFacts(View);
             ClearViews();
             foreach (var p in View.Own)
             {
@@ -249,7 +244,6 @@ namespace MilitaryShogi.Game
                     }
                     break;
             }
-            Popups.RemoveAll(p => p.Until < Time.time);
         }
 
         /// <summary>Screen rectangles occupied by IMGUI panels (set by the active UI each frame).</summary>
@@ -264,7 +258,7 @@ namespace MilitaryShogi.Game
 
         private void UpdateHover()
         {
-            HoverNode = PickAtScreen(Input.mousePosition);
+            HoverNode = MouseOverUi() ? -1 : PickAtScreen(Input.mousePosition);
         }
 
         /// <summary>Board node under a screen position (the same routine the mouse uses), or -1.</summary>
@@ -348,6 +342,7 @@ namespace MilitaryShogi.Game
             yield return Animate(record);
             while (Paused) yield return null;
 
+            KnownFacts.Update(View);
             if (Graveyard != null) Graveyard.Sync(View);
             ShowLastMove();
             if (PlyFinished != null) PlyFinished(record);
@@ -405,7 +400,6 @@ namespace MilitaryShogi.Game
                 StartCoroutine(defender.Shake(0.4f / speed, 0.035f));
                 yield return mover.Shake(0.4f / speed, 0.035f);
             }
-            AddPopup(target, r);
             switch (r.Combat.Outcome)
             {
                 case CombatOutcome.AttackerWins:
@@ -425,17 +419,6 @@ namespace MilitaryShogi.Game
                     break;
             }
             if (fx) yield return new WaitForSeconds(0.25f / speed);
-        }
-
-        private void AddPopup(Vector3 world, ObservedMove r)
-        {
-            bool playerAttacked = r.Mover == Human;
-            var o = r.Combat.Outcome;
-            string text; Color c;
-            if (o == CombatOutcome.Tie) { text = "相打ち"; c = new Color(1f, 0.85f, 0.3f); }
-            else if ((o == CombatOutcome.AttackerWins) == playerAttacked) { text = "勝ち"; c = new Color(0.5f, 1f, 0.55f); }
-            else { text = "負け"; c = new Color(1f, 0.45f, 0.4f); }
-            Popups.Add(new Popup { World = world + Vector3.up * 0.3f, Text = text, Color = c, Until = Time.time + 1.4f / Mathf.Max(0.1f, Settings.EffectSpeed) });
         }
 
         /// <summary>Neutral clash flash (expanding ring), identical for every combat.</summary>

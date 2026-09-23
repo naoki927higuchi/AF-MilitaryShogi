@@ -27,6 +27,7 @@ namespace MilitaryShogi.Game
 
         public static void Fit(Camera cam, bool includeGraveyards = false, float margin = 0.02f)
         {
+            cam.ResetProjectionMatrix();
             cam.transform.rotation = Quaternion.Euler(Pitch, 0f, 0f);
             var corners = BoardCorners().ToList();
             if (includeGraveyards) corners.AddRange(GraveyardView.Corners());
@@ -44,6 +45,12 @@ namespace MilitaryShogi.Game
                 if (fits) hi = mid; else lo = mid;
             }
             cam.transform.position = target - cam.transform.forward * hi;
+            // Shift the image upward without changing pitch, FOV, or perspective.
+            float top = corners.Max(c => cam.WorldToViewportPoint(c).y);
+            float shift = Mathf.Max(0, 1f - margin - top);
+            var projection = cam.projectionMatrix;
+            projection.m12 -= 2f * shift;
+            cam.projectionMatrix = projection;
         }
     }
 }

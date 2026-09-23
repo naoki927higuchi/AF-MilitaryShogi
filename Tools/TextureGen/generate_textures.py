@@ -285,6 +285,7 @@ def main():
     ui_dir = os.path.join(OUT, "UI")
     os.makedirs(ui_dir, exist_ok=True)
     logo = Image.open(os.path.join(SRC, LOGO)).convert("RGBA")
+    logo = logo.crop((0, 0, logo.width, 620))  # 1.1.1: keep title + English; exclude bottom copy
     logo = logo.crop(logo.getchannel("A").point(lambda p: 255 if p > 8 else 0).getbbox())
     logo_h = 300
     logo = logo.resize((round(logo.width * logo_h / logo.height), logo_h), Image.LANCZOS)
@@ -334,6 +335,7 @@ def main():
         "inputs": {n: sha256(os.path.join(SRC, n)) for n in (PLAIN_PIECE, ICON_SHEET, BOARD_WOOD, LOGO, APP_ICON)},
         "font": {"file": FONT_FILE, "family": " ".join(ImageFont.truetype(font_path, 10).getname()),
                  "note": "Installed font used for rendering only; not redistributed."},
+        "logo_crop": [0, 0, 2172, 620], "logo_note": "Game-only two-line crop; UserProvided original unchanged",
         "face_size": [W, H], "outline_uv": OUTLINE,
         "outputs": {os.path.relpath(p, ROOT).replace("\\", "/"): sha256(p) for p in outputs},
     }

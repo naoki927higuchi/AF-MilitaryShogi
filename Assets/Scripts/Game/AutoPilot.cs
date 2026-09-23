@@ -24,7 +24,7 @@ namespace MilitaryShogi.Game
     ///  - every frame: no enemy piece (board or loss area) uses anything but the back texture;
     ///  - screenshots of both modes and the help; writes autotest_report.txt, exit code 0 = pass.
     /// </summary>
-    public sealed class AutoPilot : MonoBehaviour
+    public sealed partial class AutoPilot : MonoBehaviour
     {
         private GameController game;
         private Presentation presentation;
@@ -70,6 +70,8 @@ namespace MilitaryShogi.Game
             yield return CheckPlacementEditing();
             game.AutoArrange();   // back to the seed formation so the run stays reproducible
             game.StartGame();
+            yield return CheckLayouts();
+            yield return CheckTooltipDrawing();
             humanDriver = new CpuPlayer(GameController.Human, game.Settings.PlayerFormationSeed, 777);
             game.PlyFinished += OnPly;
             yield return new WaitForSeconds(0.4f);
@@ -78,7 +80,7 @@ namespace MilitaryShogi.Game
             float deadline = Time.realtimeSinceStartup + 1200f;
             while (!game.IsFinished && Time.realtimeSinceStartup < deadline)
             {
-                if (!toggleModes && !combatShot && game.Phase == Phase.Animating && game.Popups.Count > 0 && presentation.Mode == PresentationMode.Play)
+                if (!toggleModes && !combatShot && game.Phase == Phase.Animating && game.View.History.Count > 0 && game.View.History.Last().Combat != null && presentation.Mode == PresentationMode.Play)
                 {
                     combatShot = true;
                     yield return Shot("03_play_combat.png");
@@ -103,6 +105,7 @@ namespace MilitaryShogi.Game
             yield return new WaitForSeconds(0.8f);
             CheckGraveyard();
             if (!toggleModes) yield return Shot("09_play_final.png");
+            if (playUi.ResultDrawCount == 0) Fail("end-game result modal was not drawn");
             Finish();
         }
 
