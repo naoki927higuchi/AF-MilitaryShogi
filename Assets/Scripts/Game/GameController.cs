@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MilitaryShogi.Cpu;
-using MilitaryShogi.Engine;
 using MilitaryShogi.Observation;
 using MilitaryShogi.Rules;
 using UnityEngine;
@@ -12,30 +11,6 @@ using UnityEngine;
 namespace MilitaryShogi.Game
 {
     public enum Phase { Setup, PlayerTurn, CpuThinking, Animating, Finished }
-
-    public sealed class GameSettings
-    {
-        public int PlayerFormationSeed = 1001;
-        public int CpuFormationSeed = 2002;
-        public int CpuDecisionSeed = 3003;
-        public FormationStyle? CpuStyle;           // null = derived from the CPU formation seed
-        public bool EffectsOn = true;
-        public float EffectSpeed = 1f;
-        public bool ShowEnemyNumbers = true;
-    }
-
-    /// <summary>A combat line as the human remembers it: own kind, enemy number, result. Never the enemy kind.</summary>
-    public sealed class CombatRecord
-    {
-        public int Ply;
-        public bool PlayerAttacked;
-        public PieceType OwnType;
-        public int OwnNumber;
-        public int EnemyNumber;
-        public CombatOutcome Outcome;          // from the attacker's point of view
-        public bool PlayerWon { get { return PlayerAttacked ? Outcome == CombatOutcome.AttackerWins : Outcome == CombatOutcome.DefenderWins; } }
-        public bool Tie { get { return Outcome == CombatOutcome.Tie; } }
-    }
 
     public sealed class Popup
     {
@@ -46,33 +21,32 @@ namespace MilitaryShogi.Game
     }
 
     /// <summary>
-    /// Game flow for human (South) vs CPU (North). The human's screen is driven only by the
-    /// human's PlayerView; the CPU gets only the North PlayerView. The Match (referee) is
-    /// the only object holding true kinds and is never handed to the presentation or the CPU.
+    /// Game flow for human (South) vs CPU (North): input, CPU turns, animation. All game data lives
+    /// in <see cref="GameSession"/>; the human's screen is driven only by the human's PlayerView and
+    /// the CPU gets only the North PlayerView. Presentation modes are handled elsewhere and never
+    /// call into the session.
     /// </summary>
     public sealed class GameController : MonoBehaviour
     {
-        public const Side Human = Side.South;
-        public const Side Computer = Side.North;
+        public const Side Human = GameSession.Human;
+        public const Side Computer = GameSession.Computer;
 
         public GameSettings Settings = new GameSettings();
+        public GameSession Session { get; private set; }
         public Phase Phase { get; private set; }
-        public CpuPlayer Cpu { get; private set; }
-        public PlayerView View { get; private set; }
-        public Formation PlayerFormation { get; private set; }
-        public FormationStyle PlayerStyle { get; private set; }
         public int SelectedNode { get; private set; } = -1;
         public int HoverNode { get; private set; } = -1;
-        public readonly List<CombatRecord> Combats = new List<CombatRecord>();
         public readonly List<Popup> Popups = new List<Popup>();
         public string StatusText { get; private set; } = "";
         public event Action<ObservedMove> PlyFinished;
         public event Action GameStarted;
         public Camera MainCamera;
         public BoardView Board;
+        public GraveyardView Graveyard;
 
-        private Match match;
-        private Formation cpuFormation;
+        /// <summary>While true (「あそびかた」 open) nothing advances: no input, no CPU turn, no animation.</summary>
+        public bool Paused { get; private set; }
+
         private Transform pieceRoot;
         private readonly Dictionary<int, PieceView> pieces = new Dictionary<int, PieceView>();       // by piece id (during play)
         private readonly Dictionary<int, PieceView> setupPieces = new Dictionary<int, PieceView>();  // by node (during setup)
@@ -80,51 +54,73 @@ namespace MilitaryShogi.Game
         private Task<DecisionReport> thinking;
         private float thinkingSince;
 
+        // Shortcuts into the session (read-only for the UI).
+        public CpuPlayer Cpu { get { return Session.Cpu; } }
+        public PlayerView View { get { return Session.View; } }
+        public Formation PlayerFormation { get { return Session.PlayerFormation; } }
+        public FormationStyle PlayerStyle { get { return Session.PlayerStyle; } }
+        public List<CombatRecord> Combats { get { return Session.Combats; } }
+
         public IEnumerable<PieceView> PieceViews { get { return Phase == Phase.Setup ? setupPieces.Values : pieces.Values; } }
 
-        public void Initialise(Camera cam, BoardView board)
+        public void Initialise(Camera cam, BoardView board, GraveyardView graveyard)
         {
             MainCamera = cam;
             Board = board;
+            Graveyard = graveyard;
             pieceRoot = new GameObject("Pieces").transform;
             pieceRoot.SetParent(transform, false);
-            NewSetup();
+            NewSetup(false);
+        }
+
+        public void SetPaused(bool paused)
+        {
+            Paused = paused;
+            Time.timeScale = paused ? 0f : 1f;
         }
 
         // ------------------------------------------------------------------
         // Setup phase
         // ------------------------------------------------------------------
 
-        public void NewSetup()
+        /// <param name="randomizeSeeds">Play mode: fresh hidden seeds for every new game. Research mode keeps the entered seeds.</param>
+        public void NewSetup(bool randomizeSeeds)
         {
             StopAllCoroutines();
             thinking = null;
-            match = null;
-            View = null;
-            Combats.Clear();
             Popups.Clear();
-            Cpu = new CpuPlayer(Computer, Settings.CpuFormationSeed, Settings.CpuDecisionSeed, Settings.CpuStyle);
-            cpuFormation = Cpu.CreateFormation();
-            AutoArrange();
+            if (randomizeSeeds)
+            {
+                // Seed choice is presentation-side randomness; the game itself only uses DeterministicRandom.
+                var state = UnityEngine.Random.state;
+                UnityEngine.Random.InitState(Environment.TickCount);
+                Settings.PlayerFormationSeed = UnityEngine.Random.Range(1, 1000000);
+                Settings.CpuFormationSeed = UnityEngine.Random.Range(1, 1000000);
+                Settings.CpuDecisionSeed = UnityEngine.Random.Range(1, 1000000);
+                UnityEngine.Random.state = state;
+            }
+            Session = new GameSession(Settings);
+            SelectedNode = -1;
+            BuildSetupViews();
+            if (Graveyard != null) Graveyard.Clear();
             Phase = Phase.Setup;
             StatusText = "初期配置：自軍の駒をクリックし、移動先または交換先をクリック（置けないマスは選べません）";
         }
 
-        /// <summary>おまかせ配置 from the player formation seed (style also derived from that seed).</summary>
+        /// <summary>おまかせ配置 from the player formation seed.</summary>
         public void AutoArrange()
         {
-            PlayerStyle = FormationStyles.FromSeed(Settings.PlayerFormationSeed);
-            PlayerFormation = FormationGenerator.Generate(Human, PlayerStyle, Settings.PlayerFormationSeed);
+            if (Phase != Phase.Setup) return;
+            Session.AutoArrange();
             SelectedNode = -1;
             BuildSetupViews();
         }
 
-        /// <summary>Re-create the CPU with the current seeds/style (setup phase only).</summary>
+        /// <summary>Re-create the CPU with the current seeds/profile/style (setup phase only).</summary>
         public void RefreshCpu()
         {
             if (Phase != Phase.Setup) return;
-            Cpu = new CpuPlayer(Computer, Settings.CpuFormationSeed, Settings.CpuDecisionSeed, Settings.CpuStyle);
-            cpuFormation = Cpu.CreateFormation();
+            Session.CreateCpu();
             BuildSetupViews();
         }
 
@@ -147,7 +143,7 @@ namespace MilitaryShogi.Game
                 setupPieces[p.Key] = v;
             }
             // The CPU army is shown face down at its positions (positions are public).
-            foreach (int node in cpuFormation.Pieces.Keys)
+            foreach (int node in Session.CpuFormation.Pieces.Keys)
             {
                 var v = PieceView.CreateEnemy(pieceRoot, -1, 0, false);
                 v.PlaceAt(node);
@@ -165,7 +161,6 @@ namespace MilitaryShogi.Game
             if (node == SelectedNode || node < 0) { SelectSetup(-1); return; }
             if (!PlacementTargets(SelectedNode).Contains(node))
             {
-                // Clicking another own piece that is not a valid swap target just selects it.
                 if (PlayerFormation.Pieces.ContainsKey(node) && BoardGraph.InCamp(node, Human)) SelectSetup(node);
                 return;
             }
@@ -205,10 +200,7 @@ namespace MilitaryShogi.Game
         public void StartGame()
         {
             if (Phase != Phase.Setup) return;
-            PlacementRules.Validate(PlayerFormation);
-            match = new Match(PlayerFormation.Clone(), cpuFormation);
-            View = match.GetView(Human);
-            Cpu.Observe(match.GetView(Computer));
+            Session.Start();
             ClearViews();
             foreach (var p in View.Own)
             {
@@ -222,6 +214,7 @@ namespace MilitaryShogi.Game
                 v.PlaceAt(e.Node);
                 pieces[e.Id] = v;
             }
+            if (Graveyard != null) Graveyard.Sync(View);
             SelectedNode = -1;
             Phase = Phase.PlayerTurn;
             StatusText = "あなたの手番です";
@@ -234,6 +227,7 @@ namespace MilitaryShogi.Game
 
         private void Update()
         {
+            if (Paused) return;
             UpdateHover();
             switch (Phase)
             {
@@ -250,6 +244,7 @@ namespace MilitaryShogi.Game
                         if (thinking.IsFaulted) { Debug.LogException(thinking.Exception); StatusText = "CPU思考エラー: " + thinking.Exception.InnerException?.Message; thinking = null; return; }
                         var report = thinking.Result;
                         thinking = null;
+                        Cpu.Record(report);
                         Execute(Computer, report.Chosen.Command);
                     }
                     break;
@@ -257,7 +252,7 @@ namespace MilitaryShogi.Game
             Popups.RemoveAll(p => p.Until < Time.time);
         }
 
-        /// <summary>Screen rectangles occupied by IMGUI panels (set by GameUi each frame).</summary>
+        /// <summary>Screen rectangles occupied by IMGUI panels (set by the active UI each frame).</summary>
         public readonly List<Rect> UiRects = new List<Rect>();
 
         private bool MouseOverUi()
@@ -285,6 +280,7 @@ namespace MilitaryShogi.Game
         /// <summary>A left click on a node, exactly as the mouse handler performs it (used by the auto-test).</summary>
         public void ClickNode(int node)
         {
+            if (Paused) return;
             if (Phase == Phase.Setup) SetupClick(node);
             else if (Phase == Phase.PlayerTurn) PlayClick(node);
         }
@@ -341,55 +337,41 @@ namespace MilitaryShogi.Game
             SelectedNode = -1;
             targets.Clear();
             Board.ClearHighlights();
-            var record = match.Apply(side, command);
+            PlayerView before;
+            var record = Session.Apply(side, command, out before);
             Phase = Phase.Animating;
             StartCoroutine(Play(record));
         }
 
         private IEnumerator Play(ObservedMove record)
         {
-            var before = View;
-            View = match.GetView(Human);
-            Cpu.Observe(match.GetView(Computer));   // keep the monitor's beliefs current
-            if (record.Combat != null) Combats.Add(ToCombatRecord(record, before));
-
             yield return Animate(record);
+            while (Paused) yield return null;
 
+            if (Graveyard != null) Graveyard.Sync(View);
             ShowLastMove();
             if (PlyFinished != null) PlyFinished(record);
-            if (match.Status == GameStatus.Finished)
+            if (Session.Match.Status == GameStatus.Finished)
             {
                 Phase = Phase.Finished;
                 StatusText = ResultText();
                 yield break;
             }
-            if (match.ToMove == Computer)
+            if (Session.Match.ToMove == Computer)
             {
                 Phase = Phase.CpuThinking;
                 StatusText = "CPU思考中…";
                 thinkingSince = Time.time;
-                var cpuView = match.GetView(Computer);
+                var cpuView = Session.CpuView();
                 var cpu = Cpu;
-                thinking = Task.Run(() => cpu.Decide(cpuView));
+                cpu.Observe(cpuView);                          // state changes happen here, on the main thread
+                thinking = Task.Run(() => cpu.Think(cpuView)); // pure computation in the background
             }
             else
             {
                 Phase = Phase.PlayerTurn;
                 StatusText = "あなたの手番です";
             }
-        }
-
-        private CombatRecord ToCombatRecord(ObservedMove r, PlayerView before)
-        {
-            bool playerAttacked = r.Mover == Human;
-            int ownId = playerAttacked ? r.Combat.AttackerId : r.Combat.DefenderId;
-            int enemyId = playerAttacked ? r.Combat.DefenderId : r.Combat.AttackerId;
-            var own = before.OwnById(ownId);
-            return new CombatRecord
-            {
-                Ply = r.Ply, PlayerAttacked = playerAttacked, OwnType = own.Type, OwnNumber = own.Number,
-                EnemyNumber = before.EnemyById(enemyId).Number, Outcome = r.Combat.Outcome,
-            };
         }
 
         /// <summary>
@@ -415,7 +397,6 @@ namespace MilitaryShogi.Game
             Vector3 target = BoardLayout.Node(r.To);
             if (fx)
             {
-                // Approach to just in front of the defender.
                 var approach = new List<Vector3>(path);
                 Vector3 from = path.Count > 1 ? path[path.Count - 2] : BoardLayout.Node(r.From);
                 approach[approach.Count - 1] = Vector3.Lerp(from, target, 0.55f);
@@ -477,14 +458,15 @@ namespace MilitaryShogi.Game
 
         public string ResultText()
         {
+            var match = Session.Match;
             if (match == null || match.Status != GameStatus.Finished) return "";
             string reason = match.EndReason == EndReason.HeadquartersCaptured ? "総司令部占領" : match.EndReason == EndReason.NoLegalMoves ? "相手に動かせる駒がない" : "手数制限";
             if (match.Winner == null) return "引き分け（" + reason + "）";
             return (match.Winner == Human ? "あなたの勝ち" : "CPUの勝ち") + "（" + reason + "）";
         }
 
-        public bool IsFinished { get { return match != null && match.Status == GameStatus.Finished; } }
-        public int Ply { get { return match != null ? match.Ply : 0; } }
-        public Side ToMove { get { return match != null ? match.ToMove : Human; } }
+        public bool IsFinished { get { return Session.Match != null && Session.Match.Status == GameStatus.Finished; } }
+        public int Ply { get { return Session.Match != null ? Session.Match.Ply : 0; } }
+        public Side ToMove { get { return Session.Match != null ? Session.Match.ToMove : Human; } }
     }
 }

@@ -16,6 +16,18 @@ namespace MilitaryShogi.Cpu
         public double OpportunityWeight = 1.0;
         public double InformationWeight = 1.0;
 
+        // Decision precision (1.0.0 values are the defaults = 「中」).
+        /// <summary>Read the opponent's reply (2-ply). 「弱」 turns this off.</summary>
+        public bool LookaheadEnabled = true;
+        /// <summary>Weight of the opponent's most damaging reply in the 2-ply read.</summary>
+        public double ReplyWeight = 0.7;
+        /// <summary>Moves within this score of the best are considered near-equal.</summary>
+        public double NearMargin = 0.15;
+        /// <summary>Softmax temperature for choosing among near-equal moves.</summary>
+        public double Temperature = 0.06;
+        /// <summary>At most this many near-equal moves are considered.</summary>
+        public int MaxNearCandidates = int.MaxValue;
+
         public static CpuPersonality For(FormationStyle style)
         {
             var p = new CpuPersonality();
@@ -130,7 +142,8 @@ namespace MilitaryShogi.Cpu
             report.Candidates.Sort((a, b) => b.Score.CompareTo(a.Score));
             // 2-ply: re-score every move by reading the opponent's best reply (all candidates, so the
             // correction is applied evenly).
-            foreach (var c in report.Candidates) ReadReply(c, basePos, phi0);
+            if (personality.LookaheadEnabled)
+                foreach (var c in report.Candidates) ReadReply(c, basePos, phi0);
             report.Candidates.Sort((a, b) => b.Score.CompareTo(a.Score));
             report.Chosen = Choose(report.Candidates, view.Ply);
             report.Reason = Explain(report.Chosen, report.Candidates);
@@ -205,7 +218,6 @@ namespace MilitaryShogi.Cpu
             c.Score = terms.Total;
         }
 
-        private const double ReplyWeight = 0.7;
 
         /// <summary>One possible result of our move: probability and position.</summary>
         private struct Branch
@@ -252,7 +264,7 @@ namespace MilitaryShogi.Cpu
         /// Re-score a candidate with the opponent's reply. The opponent knows its own kinds, so for
         /// each enemy piece and each movement class it could have, its reply is evaluated with
         /// the kinds of that class (belief-weighted). The most damaging reply is assumed to be
-        /// played with weight <see cref="ReplyWeight"/> (the opponent does not know our kinds,
+        /// played with weight <see cref="CpuPersonality.ReplyWeight"/> (the opponent does not know our kinds,
         /// so it does not always find it). Capturing our headquarters is scored as a loss.
         /// </summary>
         private void ReadReply(CandidateMove c, Pos basePos, ScoreTerms phi0)
@@ -298,7 +310,7 @@ namespace MilitaryShogi.Cpu
                         }
                     }
                 }
-                double read = stay + ReplyWeight * (worst - stay);
+                double read = stay + personality.ReplyWeight * (worst - stay);
                 total += br.P * read;
                 if (stay - worst > worstDrop) { worstDrop = stay - worst; worstNote = note; }
             }
@@ -762,10 +774,10 @@ namespace MilitaryShogi.Cpu
             if (sorted.Count == 0) return null;
             double best = sorted[0].Score;
             if (best >= WinScore / 2) return sorted[0];
-            var near = sorted.Where(c => c.Score >= best - 0.15).ToList();
+            var near = sorted.Where(c => c.Score >= best - personality.NearMargin).Take(personality.MaxNearCandidates).ToList();
             if (near.Count == 1) return near[0];
             var rng = DeterministicRandom.Derive(decisionSeed, ply, 0xDEC);
-            double temperature = 0.06;
+            double temperature = personality.Temperature;
             var weights = near.Select(c => Math.Exp((c.Score - best) / temperature)).ToList();
             double r = rng.NextDouble() * weights.Sum();
             for (int i = 0; i < near.Count; i++)
@@ -790,7 +802,7 @@ namespace MilitaryShogi.Cpu
                 .Select(kv => kv.Key + " " + kv.Value.ToString("+0.00;-0.00"));
             parts.Add("主な要因: " + string.Join(", ", major));
             if (!string.IsNullOrEmpty(chosen.ReplyNote)) parts.Add(chosen.ReplyNote);
-            int near = all.Count(c => c != chosen && c.Score >= chosen.Score - 0.15);
+            int near = all.Count(c => c != chosen && c.Score >= chosen.Score - personality.NearMargin);
             if (near > 0) parts.Add("僅差の候補 " + near + " 手から Decision Seed で選択");
             return string.Join("\n", parts);
         }

@@ -20,6 +20,9 @@ if ($OverwriteUnpublished) { $extra += '-overwriteUnpublished' }
 Write-Host "Building AF-MilitaryShogi $version with Unity $editorVersion (log: $log)"
 & $UnityEditor -batchmode -quit -nographics -projectPath $PSScriptRoot -buildTarget Win64 -executeMethod MilitaryShogi.Editor.WindowsBuild.BuildRelease -releaseVersion $version @extra -logFile $log | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "Unity build failed (exit $LASTEXITCODE). See $log" }
+$iconLine = Get-Content -LiteralPath $log | Where-Object { $_ -match '^APP_ICON_SET=' } | Select-Object -Last 1
+if (-not $iconLine -or $iconLine -match 'null') { throw "Application icon was not set. See $log" }
+Write-Host $iconLine
 $line = Get-Content -LiteralPath $log | Where-Object { $_ -match '^RELEASE_EXE=' } | Select-Object -Last 1
 if (-not $line) { throw "Unity did not report a release EXE. See $log" }
 $exe = $line.Substring('RELEASE_EXE='.Length).Trim()

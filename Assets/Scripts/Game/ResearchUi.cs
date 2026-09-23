@@ -10,19 +10,19 @@ using UnityEngine;
 namespace MilitaryShogi.Game
 {
     /// <summary>
+    /// 研究モード (research mode, 1.0.0 UI). Drawn only while <see cref="Presentation.Mode"/> is Research.
     /// IMGUI front end: top bar, setup panel, battle history, enemy info on hover and the
     /// CPU thinking monitor (research view). Everything about the human's opponent shown
     /// here comes from the human's PlayerView (positions, history, results) – never from the
     /// referee. The monitor shows the CPU's own reasoning.
     /// </summary>
-    public sealed class GameUi : MonoBehaviour
+    public sealed class ResearchUi : MonoBehaviour
     {
         private const float VirtualHeight = 900f;
         private GameController game;
         private float scale = 1f;
         private float vw, vh;
         private bool showMonitor;
-        private Rect lastCameraRect;
         public const float LeftColumn = 280f;
         private bool showHistory;
         private bool spoiler;           // show CPU piece kinds in the monitor
@@ -36,9 +36,13 @@ namespace MilitaryShogi.Game
         private Texture2D panelTex, rowTex, barTex, bar2Tex, barBgTex, chosenTex;
         public string Version = "1.0.0";
 
-        public void Bind(GameController controller)
+        private Presentation presentation;
+
+        public void Bind(GameController controller, Presentation presentation)
         {
             game = controller;
+            this.presentation = presentation;
+            presentation.ModeChanged += m => SyncSeedFields();   // show the running game's seeds when entering research
             SyncSeedFields();
             game.GameStarted += () => { reportIndex = -1; selectedEnemy = -1; };
         }
@@ -86,21 +90,16 @@ namespace MilitaryShogi.Game
 
         private void Update()
         {
-            if (game == null) return;
+            if (game == null || presentation.Mode != PresentationMode.Research || presentation.HelpOpen) return;
             if (Input.GetKeyDown(KeyCode.M)) showMonitor = !showMonitor;
             if (Input.GetKeyDown(KeyCode.H)) showHistory = !showHistory;
             if (Input.GetKeyDown(KeyCode.F)) game.Settings.EffectsOn = !game.Settings.EffectsOn;
             if (Input.GetKeyDown(KeyCode.N)) game.Settings.ShowEnemyNumbers = !game.Settings.ShowEnemyNumbers;
             // The board is drawn in the area not covered by the left column and the monitor.
-            float left = LeftColumn * scale / Screen.width;
-            float monitorFraction = showMonitor ? MonitorWidth() * scale / Screen.width : 0f;
-            var rect = new Rect(left, 0, Mathf.Max(0.2f, 1f - left - monitorFraction), 1f - 44f * scale / Screen.height);
-            if (game.MainCamera != null && rect != lastCameraRect)
-            {
-                lastCameraRect = rect;
-                game.MainCamera.rect = rect;
-                CameraFit.Fit(game.MainCamera);
-            }
+            float s = Mathf.Clamp(Screen.height / VirtualHeight, 0.75f, 2.5f);
+            float left = LeftColumn * s;
+            float right = showMonitor ? Mathf.Min(700f, Screen.width / s * 0.44f) * s : 0f;
+            presentation.ResearchBoardArea = new Rect(left, 44f * s, Mathf.Max(0.2f * Screen.width, Screen.width - left - right), Screen.height - 44f * s);
         }
 
         public bool MonitorVisible { get { return showMonitor; } set { showMonitor = value; } }
@@ -111,7 +110,7 @@ namespace MilitaryShogi.Game
 
         private void OnGUI()
         {
-            if (game == null) return;
+            if (game == null || presentation.Mode != PresentationMode.Research) return;
             EnsureStyles();
             scale = Mathf.Clamp(Screen.height / VirtualHeight, 0.75f, 2.5f);
             vw = Screen.width / scale;
@@ -147,15 +146,17 @@ namespace MilitaryShogi.Game
             GUI.Label(new Rect(110, 14, 160, 24), "AF-MilitaryShogi " + Version, small);
             string turn = game.Phase == Phase.Setup ? "初期配置" : "TURN " + (game.Ply + (game.IsFinished ? 0 : 1)) + "　手番: " + (game.IsFinished ? "終局" : game.ToMove == GameController.Human ? "あなた（手前）" : "CPU（奥）");
             GUI.Label(new Rect(270, 12, 330, 24), turn, label);
-            GUI.Label(new Rect(600, 12, vw - 600 - 560, 24), game.StatusText, small);
+            GUI.Label(new Rect(600, 12, vw - 600 - 760, 24), game.StatusText, small);
             float x = vw - 552;
+            if (GUI.Button(new Rect(x - 200, 8, 96, 28), "あそびかた", button)) presentation.OpenHelp();
+            if (GUI.Button(new Rect(x - 100, 8, 96, 28), "対戦モードへ", button)) presentation.SetMode(PresentationMode.Play);
             if (GUI.Button(new Rect(x, 8, 118, 28), (showMonitor ? "■" : "□") + " 思考モニター(M)", button)) showMonitor = !showMonitor;
             if (GUI.Button(new Rect(x + 122, 8, 100, 28), (showHistory ? "■" : "□") + " 戦闘履歴(H)", button)) showHistory = !showHistory;
             if (GUI.Button(new Rect(x + 226, 8, 92, 28), "演出:" + (game.Settings.EffectsOn ? "ON" : "OFF") + "(F)", button)) game.Settings.EffectsOn = !game.Settings.EffectsOn;
             if (GUI.Button(new Rect(x + 322, 8, 64, 28), "速度x" + game.Settings.EffectSpeed.ToString("0"), button))
                 game.Settings.EffectSpeed = game.Settings.EffectSpeed >= 4 ? 1 : game.Settings.EffectSpeed * 2;
             if (GUI.Button(new Rect(x + 390, 8, 72, 28), "番号(N)", button)) game.Settings.ShowEnemyNumbers = !game.Settings.ShowEnemyNumbers;
-            if (GUI.Button(new Rect(x + 466, 8, 80, 28), "新規対局", button)) { game.NewSetup(); SyncSeedFields(); }
+            if (GUI.Button(new Rect(x + 466, 8, 80, 28), "新規対局", button)) { game.NewSetup(false); SyncSeedFields(); }
         }
 
         // ------------------------------------------------------------------
@@ -164,7 +165,7 @@ namespace MilitaryShogi.Game
 
         private void DrawSetupPanel()
         {
-            var r = Region(new Rect(8, 52, LeftColumn - 16, 470));
+            var r = Region(new Rect(8, 52, LeftColumn - 16, 640));
             GUILayout.BeginArea(r, panel);
             GUILayout.Label("対局設定", header);
             GUILayout.Space(4);
@@ -184,6 +185,12 @@ namespace MilitaryShogi.Game
                 game.Settings.CpuStyle = chosen == 0 ? (FormationStyle?)null : (FormationStyle)(chosen - 1);
                 game.RefreshCpu();
             }
+            GUILayout.Space(6);
+            GUILayout.Label("CPUの強さ／戦い方（対戦モードと共通）", small);
+            int strength = GUILayout.Toolbar((int)game.Settings.Strength, new[] { "弱", "中", "強" }, button);
+            if (strength != (int)game.Settings.Strength) { game.Settings.Strength = (CpuStrength)strength; game.RefreshCpu(); }
+            int temper = GUILayout.SelectionGrid(2 - game.Settings.Temperament, Enumerable.Range(0, 5).Select(i => CpuProfile.TemperamentName(2 - i)).ToArray(), 3, button);
+            if (temper != 2 - game.Settings.Temperament) { game.Settings.Temperament = 2 - temper; game.RefreshCpu(); }
             GUILayout.Space(8);
             if (GUILayout.Button("おまかせ配置（Player Seedで再配置）", button, GUILayout.Height(30))) game.AutoArrange();
             GUILayout.Space(4);
@@ -327,7 +334,7 @@ namespace MilitaryShogi.Game
             GUI.Box(r, GUIContent.none, panel);
             GUI.Label(new Rect(r.x, r.y + 16, r.width, 40), game.ResultText(), new GUIStyle(title) { alignment = TextAnchor.MiddleCenter });
             GUI.Label(new Rect(r.x + 20, r.y + 58, r.width - 40, 30), "撃破した敵駒の正体は終局後も公開されません。", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
-            if (GUI.Button(new Rect(r.x + r.width / 2 - 70, r.y + 94, 140, 32), "新規対局", button)) { game.NewSetup(); SyncSeedFields(); }
+            if (GUI.Button(new Rect(r.x + r.width / 2 - 70, r.y + 94, 140, 32), "新規対局", button)) { game.NewSetup(false); SyncSeedFields(); }
         }
 
         // ------------------------------------------------------------------
@@ -376,7 +383,11 @@ namespace MilitaryShogi.Game
             GUILayout.Label("現在 TURN " + (game.Ply + (game.IsFinished ? 0 : 1)) + "　Player Formation Seed " + game.Settings.PlayerFormationSeed
                 + "　CPU Formation Seed " + cpu.FormationSeed + "　CPU Decision Seed " + cpu.DecisionSeed, small);
             GUILayout.EndHorizontal();
-            GUILayout.Label("CPU配置思想: <b>" + FormationStyles.JapaneseName(cpu.Style) + "</b>" + (cpu.StyleForced ? "（明示指定）" : "（Formation Seedから自動決定）") + "　" + FormationStyles.Summary(cpu.Style), small);
+            GUILayout.Label("CPU配置思想: <b>" + FormationStyles.JapaneseName(cpu.Style) + "</b>" + (cpu.StyleForced ? "（明示指定）" : "（Formation Seed＋戦い方から自動決定）") + "　" + FormationStyles.Summary(cpu.Style), small);
+            if (cpu.Profile.HasValue)
+                GUILayout.Label("CPUの強さ: <b>" + CpuProfile.StrengthName(cpu.Profile.Value.Strength) + "</b>　戦い方: <b>" + CpuProfile.TemperamentName(cpu.Profile.Value.Temperament) + "</b>　（前進×" + cpu.Personality.ProgressWeight.ToString("0.00")
+                    + " 防衛×" + cpu.Personality.DefenseWeight.ToString("0.00") + " リスク回避×" + cpu.Personality.RiskAversion.ToString("0.00") + " 攻撃機会×" + cpu.Personality.OpportunityWeight.ToString("0.00")
+                    + "　2手読み " + (cpu.Personality.LookaheadEnabled ? "あり" : "なし") + "　僅差幅 " + cpu.Personality.NearMargin.ToString("0.00") + "）", small);
 
             GUILayout.BeginHorizontal();
             GUI.enabled = reports.Count > 0;

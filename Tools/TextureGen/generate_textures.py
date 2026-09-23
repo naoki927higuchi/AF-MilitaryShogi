@@ -10,7 +10,8 @@ the project or the build; only rendered glyphs end up in the textures.
 
 Outputs (overwritten deterministically): Assets/Generated/Resources/Textures/
   Pieces/piece_<type>.png, Pieces/piece_back.png, Pieces/piece_side.png,
-  Board/board_wood.png, Board/table_wood.png, Board/label_hq.png, generation_manifest.json
+  Board/board_wood.png, Board/table_wood.png, Board/label_hq.png, UI/title_logo.png,
+  generation_manifest.json; application icons in Assets/Generated/Icons/app_icon_<size>.png
 and a contact sheet for review in Generated/Previews/.
 
 Run: python Tools/TextureGen/generate_textures.py
@@ -32,6 +33,9 @@ PLAIN_PIECE = "軍人将棋無地駒.png"
 ICON_SHEET = "軍人将棋アイコン素材集.png"
 BOARD_WOOD = "濃紺木目.png"
 FONT_FILE = "KsoTouryu.otf"
+LOGO = "ロゴ タイトルとコピーのみ.png"
+APP_ICON = "アイコン画像.png"
+ICON_SIZES = (16, 24, 32, 40, 48, 64, 96, 128, 256, 512, 1024)
 
 # Face texture size. Aspect equals the plain-piece bounding box (995 x 1113).
 W, H = 512, 572
@@ -44,7 +48,7 @@ ICON_BOX = (0.19, 0.20, 0.81, 0.52)     # x0, y0, x1, y1
 TEXT_CENTER_Y = 0.72
 TEXT_CHAR_H = 0.255                      # glyph em height as fraction of H
 TEXT_MAX_W = 0.80                        # max text width as fraction of W
-INK = (22, 16, 12)
+INK = (8, 6, 4)          # 1.1.0: darker ink so names/stars/icons stay black under the key light
 BURN = (78, 42, 18)
 
 # Icon cells in the icon sheet (pixel boxes inside the frame lines).
@@ -182,16 +186,21 @@ def text_layer(text, font_path):
 
 
 def ink(face, coverage, color=INK, engrave=True):
-    """Composite a coverage mask as carved, inked lettering."""
+    """Composite a coverage mask as carved, inked lettering.
+
+    1.1.0 legibility: strokes are thickened by about one texel and surrounded by a soft
+    dark groove shadow (the former light rim washed out under the key light). The wood
+    itself is not darkened.
+    """
     out = face.copy()
+    bold = ImageChops.lighter(coverage, coverage.filter(ImageFilter.MaxFilter(3)).point(lambda p: int(p * 0.6)))
     if engrave:
-        # faint light rim below-right of each stroke, like a carved groove edge
-        rim = ImageChops.offset(coverage, 1, 2).filter(ImageFilter.GaussianBlur(1.2))
-        rim = ImageChops.subtract(rim, coverage)
-        light = Image.new("RGB", face.size, (255, 236, 200))
-        out = Image.composite(light, out, rim.point(lambda p: p * 0.35))
+        groove = bold.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.GaussianBlur(1.6))
+        groove = ImageChops.subtract(groove, bold)
+        shade = Image.new("RGB", face.size, (70, 42, 20))
+        out = Image.composite(shade, out, groove.point(lambda p: int(p * 0.45)))
     solid = Image.new("RGB", face.size, color)
-    return Image.composite(solid, out, coverage)
+    return Image.composite(solid, out, bold)
 
 
 def finish(face, mask):
@@ -272,6 +281,44 @@ def main():
     rgba.save(path, optimize=True)
     outputs.append(path)
 
+    # Title logo (alpha title text only; the banner-with-background variant is not used in game).
+    ui_dir = os.path.join(OUT, "UI")
+    os.makedirs(ui_dir, exist_ok=True)
+    logo = Image.open(os.path.join(SRC, LOGO)).convert("RGBA")
+    logo = logo.crop(logo.getchannel("A").point(lambda p: 255 if p > 8 else 0).getbbox())
+    logo_h = 300
+    logo = logo.resize((round(logo.width * logo_h / logo.height), logo_h), Image.LANCZOS)
+    path = os.path.join(ui_dir, "title_logo.png")
+    logo.save(path, optimize=True)
+    outputs.append(path)
+
+    # Application icon: the black outside of the rounded frame becomes transparent (flood fill
+    # from the corners), then one PNG per size Unity asks for on Windows.
+    icon = Image.open(os.path.join(SRC, APP_ICON)).convert("RGB")
+    a = np.asarray(icon).astype(int)
+    dark = (a.max(axis=2) < 40)
+    outside = np.zeros(dark.shape, bool)
+    stack = [(0, 0), (0, dark.shape[1] - 1), (dark.shape[0] - 1, 0), (dark.shape[0] - 1, dark.shape[1] - 1)]
+    while stack:
+        y, x = stack.pop()
+        if y < 0 or x < 0 or y >= dark.shape[0] or x >= dark.shape[1] or outside[y, x] or not dark[y, x]:
+            continue
+        outside[y, x] = True
+        stack.extend(((y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)))
+    alpha = Image.fromarray(np.where(outside, 0, 255).astype("uint8")).filter(ImageFilter.GaussianBlur(1.2))
+    icon = icon.convert("RGBA")
+    icon.putalpha(alpha)
+    icon = icon.crop(alpha.point(lambda p: 255 if p > 8 else 0).getbbox())
+    side_px = max(icon.size)
+    square = Image.new("RGBA", (side_px, side_px), (0, 0, 0, 0))
+    square.paste(icon, ((side_px - icon.width) // 2, (side_px - icon.height) // 2))
+    icon_dir = os.path.join(ROOT, "Assets", "Generated", "Icons")
+    os.makedirs(icon_dir, exist_ok=True)
+    for size in ICON_SIZES:
+        path = os.path.join(icon_dir, "app_icon_%d.png" % size)
+        square.resize((size, size), Image.LANCZOS).save(path, optimize=True)
+        outputs.append(path)
+
     # Contact sheet for human review (outside Assets, not a game resource).
     names = [p for p in outputs if os.path.basename(p).startswith("piece_") and "side" not in p]
     cols = 6
@@ -284,7 +331,7 @@ def main():
 
     manifest = {
         "generator": "Tools/TextureGen/generate_textures.py",
-        "inputs": {n: sha256(os.path.join(SRC, n)) for n in (PLAIN_PIECE, ICON_SHEET, BOARD_WOOD)},
+        "inputs": {n: sha256(os.path.join(SRC, n)) for n in (PLAIN_PIECE, ICON_SHEET, BOARD_WOOD, LOGO, APP_ICON)},
         "font": {"file": FONT_FILE, "family": " ".join(ImageFont.truetype(font_path, 10).getname()),
                  "note": "Installed font used for rendering only; not redistributed."},
         "face_size": [W, H], "outline_uv": OUTLINE,

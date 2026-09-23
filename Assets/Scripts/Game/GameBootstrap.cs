@@ -11,7 +11,7 @@ namespace MilitaryShogi.Game
     /// </summary>
     public sealed class GameBootstrap : MonoBehaviour
     {
-        public const string Version = "1.0.0";
+        public const string Version = "1.1.0";
 
         private void Awake()
         {
@@ -58,30 +58,41 @@ namespace MilitaryShogi.Game
             var board = boardGo.AddComponent<BoardView>();
             board.Build();
 
+            var graveyard = new GameObject("Graveyard").AddComponent<GraveyardView>();
             var controller = new GameObject("Game").AddComponent<GameController>();
-            ApplySeedArguments(controller.Settings);
-            controller.Initialise(cam, board);
-            var ui = controller.gameObject.AddComponent<GameUi>();
-            ui.Version = Version;
-            ui.Bind(controller);
+            bool seeded = ApplySeedArguments(controller.Settings);
+            controller.Initialise(cam, board, graveyard);
+            if (!seeded) controller.NewSetup(true);   // normal play: fresh hidden seeds
+
+            // Presentation only (対戦 / 研究 / あそびかた). Start-up mode is always 対戦.
+            var presentation = controller.gameObject.AddComponent<Presentation>();
+            presentation.Bind(controller);
+            var play = controller.gameObject.AddComponent<PlayUi>();
+            play.Bind(controller, presentation);
+            var research = controller.gameObject.AddComponent<ResearchUi>();
+            research.Version = Version;
+            research.Bind(controller, presentation);
+            var help = controller.gameObject.AddComponent<HelpUi>();
+            help.Bind(controller, presentation);
 
             string autotest = Argument("-autotest");
             if (autotest != null)
             {
                 var pilot = controller.gameObject.AddComponent<AutoPilot>();
-                pilot.Begin(controller, autotest);
+                pilot.Begin(controller, autotest, Array.IndexOf(Environment.GetCommandLineArgs(), "-toggleModes") >= 0);
             }
         }
 
-        private static void ApplySeedArguments(GameSettings s)
+        private static bool ApplySeedArguments(GameSettings s)
         {
             string seeds = Argument("-seeds");
-            if (seeds == null) return;
+            if (seeds == null) return false;
             var parts = seeds.Split(',');
-            if (parts.Length != 3) return;
+            if (parts.Length != 3) return false;
             s.PlayerFormationSeed = int.Parse(parts[0]);
             s.CpuFormationSeed = int.Parse(parts[1]);
             s.CpuDecisionSeed = int.Parse(parts[2]);
+            return true;
         }
 
         public static string Argument(string name)

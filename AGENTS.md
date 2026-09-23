@@ -14,7 +14,7 @@
 | 製品プロジェクト | Unityプロジェクト（Unity 6.6 = 6000.6.2f1、Built-in Render Pipeline、Mono、Windows x64） |
 | バージョン設定元 | `VERSION.txt`（3桁）。`GameBootstrap.Version` と一致しないとビルドが失敗する。ビルド時に `PlayerSettings.bundleVersion` へ反映 |
 | Windowsリリース出力 | `bin/Release-<Version>/AF-MilitaryShogi.exe`（`Build-Windows.ps1`） |
-| 検証方法 | `Run-Tests.ps1`（ルール・エンジン・CPU・情報境界・全局の自動テスト、.NET 9 SDK）、`Build-Windows.ps1`、`Run-AutoTest.ps1`（ビルドしたEXEで自動対局・敵駒表面の描画検査・クリック操作検査・スクリーンショット）。人の手による実プレイ確認は別途 |
+| 検証方法 | `Run-Tests.ps1`（ルール・エンジン・CPU・情報境界・強さ/戦い方・あそびかた・全局の自動テスト、.NET 9 SDK）、`Build-Windows.ps1`（アプリアイコン設定の確認を含む）、`Run-AutoTest.ps1`（ビルドしたEXEで自動対局を2回：表示モード切替あり/なしの指紋比較、敵駒表面の描画検査、損失表示・あそびかた一時停止・ロゴ・アイコンの検査、スクリーンショット）。人の手による実プレイ確認は別途 |
 | 公開先 | `Distribution/` |
 | 利用者が別途用意するランタイム・外部ツール | なし（Unityプレイヤー同梱） |
 | 製品ライセンス | 公開時に決定 |
@@ -34,6 +34,10 @@
 - CPU（`MilitaryShogi.Cpu`）は `MilitaryShogi.Rules` と `MilitaryShogi.Observation` だけを参照する。`MilitaryShogi.Engine` への参照・リフレクション等で敵駒の真の種類へ到達する経路を作らない。テスト（Boundary系）で検査する。
 - 敵駒の表面テクスチャを敵駒の表示オブジェクトへ渡すコードを書かない。戦闘演出は駒種に依存させない。撃破した敵駒の正体も公開しない。
 - Seedは Player Formation Seed / CPU Formation Seed / CPU Decision Seed を分離し、乱数は `DeterministicRandom` を使う（`System.Random` をゲームロジックに使わない）。
+- 表示モード（対戦／研究）とあそびかたはPresentation層の状態とし、切替で `GameSession`（盤面・手番・CPU Knowledge・Seed・履歴）や乱数状態を変更・再生成しない（1.1.0〜、EXE自動検証で指紋比較）。起動時は対戦モード。
+- 対戦モードにはSeed・評価値・推定確率・敵駒番号・観測履歴などの研究情報を表示しない。研究機能は研究モードに残し、削除しない。
+- CPUの強さ・戦い方は選択の精度とリスクの取り方だけを変え、敵駒推定（CpuKnowledge）とルール理解を変えない（テストで検査）。「中・バランス」は1.0.0と同じ判断を保つ。
+- あそびかたの戦闘相性・移動図は `RuleReference`（勝敗表・移動生成）から作り、手書きの表を持たない。
 
 ## 構成管理
 

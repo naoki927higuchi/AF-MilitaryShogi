@@ -41,6 +41,13 @@ namespace MilitaryShogi.Tests
                 ("CPU: knowledge updates from observations", CpuTests.KnowledgeScenarios),
                 ("CPU: formation style & seed", CpuTests.FormationStyles),
                 ("CPU: decision seed reproducibility", CpuTests.DecisionSeedReproducibility),
+                ("1.1.0 CPU: 中・バランス reproduces 1.0.0", ProfileTests.StandardEqualsLegacy),
+                ("1.1.0 CPU: 弱/中/強 lookahead and choice precision", ProfileTests.StrengthLevels),
+                ("1.1.0 CPU: strength/temperament do not change knowledge", ProfileTests.TemperamentKeepsKnowledge),
+                ("1.1.0 CPU: temperament shapes formation style and play", ProfileTests.TemperamentShapesStyleAndPlay),
+                ("1.1.0 Boundary: 弱/強 and every temperament stay blind to hidden kinds", ProfileTests.ProfilesStayBlind),
+                ("1.1.0 Help: combat chart equals the Judge", ProfileTests.HelpCombatMatchesJudge),
+                ("1.1.0 Help: movement diagrams equal the move generator", ProfileTests.HelpMovementMatchesRules),
                 ("Games: CPU vs CPU and CPU vs random complete; beliefs stay sound", () => GameTests.FullGames(quick)),
             };
 

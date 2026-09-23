@@ -90,7 +90,9 @@ namespace MilitaryShogi.Tests
         /// first move: the CPU (north) must produce byte-identical decisions, because nothing it
         /// can observe differs.
         /// </summary>
-        public static void HiddenKindsDoNotChangeDecision()
+        public static void HiddenKindsDoNotChangeDecision() { HiddenKindsDoNotChangeDecision(null); }
+
+        public static void HiddenKindsDoNotChangeDecision(Func<CpuPlayer> makeCpu)
         {
             var baseSouth = FormationGenerator.Generate(Side.South, FormationStyle.Balanced, 99);
             var north = FormationGenerator.Generate(Side.North, FormationStyle.Aggressive, 5);
@@ -124,7 +126,7 @@ namespace MilitaryShogi.Tests
                 }
                 Check(found, "common first move");
                 match.Apply(Side.South, first);
-                var cpu = new CpuPlayer(Side.North, 5, 77, FormationStyle.Aggressive);
+                var cpu = makeCpu != null ? makeCpu() : new CpuPlayer(Side.North, 5, 77, FormationStyle.Aggressive);
                 var report = cpu.Decide(match.GetView(Side.North));
                 return report.Chosen.Command + "|" + string.Join(";", report.Candidates.Select(c => c.Command + "=" + c.Score.ToString("R")))
                     + "|" + string.Join(";", report.Beliefs.Select(b => string.Join(",", b.Probability.Select(p => p.ToString("R")))));

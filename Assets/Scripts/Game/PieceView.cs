@@ -117,6 +117,9 @@ namespace MilitaryShogi.Game
         private static Material backMaterial, sideMaterial;
         private static readonly Dictionary<PieceType, Material> faceMaterials = new Dictionary<PieceType, Material>();
 
+        // 1.1.0: low gloss so the key light's specular does not wash out the black ink.
+        private const float FaceGloss = 0.1f;
+
         private static Material SideMaterial
         {
             get { return sideMaterial ?? (sideMaterial = GameAssets.Lit(GameAssets.Side, new Color(0.95f, 0.9f, 0.85f), 0.3f)); }
@@ -124,13 +127,13 @@ namespace MilitaryShogi.Game
 
         public static Material BackMaterial
         {
-            get { return backMaterial ?? (backMaterial = GameAssets.Lit(GameAssets.Back, Color.white, 0.3f)); }
+            get { return backMaterial ?? (backMaterial = GameAssets.Lit(GameAssets.Back, Color.white, FaceGloss)); }
         }
 
         private static Material Face(PieceType type)
         {
             Material m;
-            if (!faceMaterials.TryGetValue(type, out m)) faceMaterials[type] = m = GameAssets.Lit(GameAssets.Face(type), Color.white, 0.3f);
+            if (!faceMaterials.TryGetValue(type, out m)) faceMaterials[type] = m = GameAssets.Lit(GameAssets.Face(type), Color.white, FaceGloss);
             return m;
         }
 
