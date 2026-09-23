@@ -86,8 +86,9 @@ namespace MilitaryShogi.Game
                 DrawTopBar();
                 DrawStatusBar();
                 if (game.Phase == Phase.Setup) DrawSetup();
-                if (game.Phase == Phase.Finished) DrawResult();
             }
+            if (presentation.ResultOpen)
+                using (ModalInput.Background(top != "result")) DrawResult();
             if (presentation.SettingsOpen)
                 using (ModalInput.Background(top != "settings")) DrawSettings();
             if (confirmNew)
@@ -238,12 +239,19 @@ namespace MilitaryShogi.Game
         private void DrawResult()
         {
             if (Event.current.type == EventType.Repaint) ResultDrawCount++;
-            var r = Region(new Rect(vw / 2 - 230, vh / 2 - 95, 460, 190));
+            var r = Region(new Rect(vw / 2 - 250, vh / 2 - 110, 500, 220));
             GUI.Box(r, GUIContent.none, ui.Panel);
-            GUI.Label(new Rect(r.x, r.y + 16, r.width, 44), game.ResultText(), new GUIStyle(ui.Big) { alignment = TextAnchor.MiddleCenter });
-            LastResultText = "TURN " + game.Ply + "　経過 " + UiKit.FormatClock(game.ElapsedSeconds);
-            GUI.Label(new Rect(r.x, r.y + 70, r.width, 30), LastResultText, new GUIStyle(ui.Label) { alignment = TextAnchor.MiddleCenter });
-            if (GUI.Button(new Rect(r.x + r.width / 2 - 80, r.y + 124, 160, 40), "新規対局", ui.Button)) game.NewSetup(true);
+            GUI.Label(new Rect(r.x, r.y + 14, r.width, 40), game.ResultTitle(), new GUIStyle(ui.Big) { alignment = TextAnchor.MiddleCenter });
+            GUI.Label(new Rect(r.x + 16, r.y + 58, r.width - 32, 26), game.ResultReason(), new GUIStyle(ui.Label) { alignment = TextAnchor.MiddleCenter });
+            string clock = "TURN " + game.Ply + "　経過 " + UiKit.FormatClock(game.ElapsedSeconds);
+            LastResultText = game.ResultText() + "　" + clock;
+            GUI.Label(new Rect(r.x, r.y + 92, r.width, 26), clock, new GUIStyle(ui.Label) { alignment = TextAnchor.MiddleCenter });
+            var look = new Rect(r.x + r.width / 2 - 170, r.y + 150, 160, 44);
+            var again = new Rect(r.x + r.width / 2 + 10, r.y + 150, 160, 44);
+            UiKit.Spot("result.board", look);
+            UiKit.Spot("result.new", again);
+            if (GUI.Button(look, "盤面を見る", ui.Button)) presentation.ResultDismissed = true;
+            if (GUI.Button(again, "新規対局", ui.Button)) game.NewSetup(true);
         }
     }
 }

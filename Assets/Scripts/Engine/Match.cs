@@ -11,6 +11,14 @@ namespace MilitaryShogi.Engine
         public int MaxPlies = 800;
         /// <summary>Draw when this many consecutive plies pass without any combat.</summary>
         public int MaxPliesWithoutCombat = 160;
+        /// <summary>
+        /// Draw as soon as neither side has a piece that can capture the headquarters (大将〜少佐)
+        /// (1.3.0). False only reproduces the older rule for regression comparisons.
+        /// </summary>
+        public bool DrawWhenNoCapturers = DefaultDrawWhenNoCapturers;
+
+        /// <summary>Default for new configs. The test runner's --legacy-draw sets it to false.</summary>
+        public static bool DefaultDrawWhenNoCapturers = true;
     }
 
     /// <summary>The single piece record in the authoritative state. Never leaves this assembly.</summary>
@@ -171,6 +179,11 @@ namespace MilitaryShogi.Engine
                 Finish(mover.Side, EndReason.HeadquartersCaptured);
                 return;
             }
+            if (config.DrawWhenNoCapturers && !HasCapturer(Side.South) && !HasCapturer(Side.North))
+            {
+                Finish(null, EndReason.NoCapturers);
+                return;
+            }
             if (LegalMoves(state.ToMove).Count == 0)
             {
                 Finish(state.ToMove.Opponent(), EndReason.NoLegalMoves);
@@ -178,6 +191,23 @@ namespace MilitaryShogi.Engine
             }
             if (state.Ply >= config.MaxPlies || state.Ply - state.LastCombatPly >= config.MaxPliesWithoutCombat)
                 Finish(null, EndReason.MoveLimit);
+        }
+
+        private bool HasCapturer(Side side)
+        {
+            foreach (var p in state.Pieces)
+                if (p.Side == side && p.Node >= 0 && PieceCatalog.CanCaptureHeadquarters(p.Type)) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// <paramref name="side"/> resigns; the opponent wins (EndReason.Resigned). Allowed at any time
+        /// while the game is in progress. The CPU never calls this; only the player can resign.
+        /// </summary>
+        public void Resign(Side side)
+        {
+            if (state.Status != GameStatus.Playing) throw new InvalidOperationException("The game is over.");
+            Finish(side.Opponent(), EndReason.Resigned);
         }
 
         private void Finish(Side? winner, EndReason reason)

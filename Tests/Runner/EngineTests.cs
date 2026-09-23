@@ -160,6 +160,63 @@ namespace MilitaryShogi.Tests
             return m;
         }
 
+        private static int CapturersAlive(Match m, Side side)
+        {
+            return m.GetView(side).Own.Count(p => p.Alive && PieceCatalog.CanCaptureHeadquarters(p.Type));
+        }
+
+        /// <summary>
+        /// 1.3.0: as soon as neither side has 大将〜少佐 left the game is a draw (NoCapturers); never
+        /// earlier. The same games under the old rule continue past that ply.
+        /// </summary>
+        public static void NoCapturersDraw()
+        {
+            int found = 0;
+            for (int seed = 1; seed <= 400 && found < 12; seed++)
+            {
+                var moves = new List<MoveCommand>();
+                var rng = new DeterministicRandom(seed * 131);
+                var m = new Match(FormationGenerator.Generate(Side.South, FormationStyle.Balanced, seed), FormationGenerator.Generate(Side.North, FormationStyle.Aggressive, seed),
+                    new MatchConfig { DrawWhenNoCapturers = true });   // explicit, so the suite also holds under --legacy-draw
+                while (m.Status == GameStatus.Playing)
+                {
+                    Check(CapturersAlive(m, Side.South) > 0 || CapturersAlive(m, Side.North) > 0, "never playing on with no capturer on either side");
+                    var legal = m.LegalMoves(m.ToMove);
+                    var cmd = legal[rng.Next(legal.Count)];
+                    moves.Add(cmd);
+                    m.Apply(m.ToMove, cmd);
+                }
+                if (m.EndReason != EndReason.NoCapturers) continue;
+                found++;
+                Check(m.Winner == null, "NoCapturers is a draw");
+                Check(CapturersAlive(m, Side.South) == 0 && CapturersAlive(m, Side.North) == 0, "both sides really have no 大将〜少佐");
+                var last = m.History[m.History.Count - 1];
+                Check(last.Combat != null, "the draw is triggered by the combat that removed the last capturer");
+
+                // Old rule: the same moves leave the game in progress at that ply.
+                var legacy = new Match(FormationGenerator.Generate(Side.South, FormationStyle.Balanced, seed), FormationGenerator.Generate(Side.North, FormationStyle.Aggressive, seed),
+                    new MatchConfig { DrawWhenNoCapturers = false });
+                foreach (var c in moves) legacy.Apply(legacy.ToMove, c);
+                Check(legacy.Status == GameStatus.Playing || legacy.EndReason != EndReason.NoCapturers, "legacy rule does not end by NoCapturers");
+            }
+            Check(found > 0, "random games reached a no-capturer position");
+            Metrics.Add("1.3.0 no-capturer draws found in random games: " + found);
+        }
+
+        /// <summary>1.3.0: resignation ends the game immediately; the opponent wins with EndReason.Resigned.</summary>
+        public static void Resignation()
+        {
+            var m = new Match(FormationGenerator.Generate(Side.South, FormationStyle.Balanced, 5), FormationGenerator.Generate(Side.North, FormationStyle.Balanced, 6));
+            m.Apply(Side.South, m.LegalMoves(Side.South)[0]);
+            m.Resign(Side.South);
+            Check(m.Status == GameStatus.Finished && m.Winner == Side.North && m.EndReason == EndReason.Resigned, "south resigns → north wins by resignation");
+            Check(m.GetView(Side.South).EndReason == EndReason.Resigned && m.GetView(Side.South).Winner == Side.North, "players see the reason");
+            Check(m.LegalMoves(Side.North).Count == 0, "no moves after resignation");
+            bool threw = false;
+            try { m.Resign(Side.North); } catch (InvalidOperationException) { threw = true; }
+            Check(threw, "cannot resign a finished game");
+        }
+
         public static void RandomGameInvariants()
         {
             for (int seed = 1; seed <= 60; seed++)

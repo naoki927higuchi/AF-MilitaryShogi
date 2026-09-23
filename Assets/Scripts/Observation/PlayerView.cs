@@ -15,7 +15,11 @@ namespace MilitaryShogi.Observation
 
     public enum GameStatus { Setup, Playing, Finished }
 
-    public enum EndReason { None, HeadquartersCaptured, NoLegalMoves, MoveLimit }
+    /// <summary>
+    /// Why the game ended. NoCapturers (1.3.0): neither side has 大将〜少佐 left, so no side can
+    /// capture the headquarters. Resigned (1.3.0): the loser resigned (only the player can resign).
+    /// </summary>
+    public enum EndReason { None, HeadquartersCaptured, NoLegalMoves, MoveLimit, NoCapturers, Resigned }
 
     /// <summary>A piece of the viewing player: kind is known (it is your own piece).</summary>
     public sealed class OwnPieceView

@@ -59,7 +59,21 @@ namespace MilitaryShogi.Game
             get
             {
                 if (uiFont == null)
-                    uiFont = Font.CreateDynamicFontFromOSFont(new[] { "Yu Gothic UI", "Meiryo UI", "Meiryo", "MS UI Gothic", "MS Gothic" }, 16);
+                {
+                    var names = new System.Collections.Generic.List<string> { "Yu Gothic UI", "Meiryo UI", "Meiryo", "MS UI Gothic", "MS Gothic" };
+                    if (Application.platform == RuntimePlatform.Android)
+                    {
+                        // Android: a Japanese system font (Noto Sans CJK on most devices); no font file is shipped.
+                        names.Clear();
+                        foreach (var n in Font.GetOSInstalledFontNames())
+                            if (n.IndexOf("CJK", System.StringComparison.OrdinalIgnoreCase) >= 0 && n.IndexOf("Regular", System.StringComparison.OrdinalIgnoreCase) >= 0) names.Add(n);
+                        foreach (var n in Font.GetOSInstalledFontNames())
+                            if (n.IndexOf("CJK", System.StringComparison.OrdinalIgnoreCase) >= 0 || n.IndexOf("JP", System.StringComparison.Ordinal) >= 0) names.Add(n);
+                        names.Add("Roboto");
+                        Debug.Log("UI font candidates: " + string.Join(", ", names));
+                    }
+                    uiFont = Font.CreateDynamicFontFromOSFont(names.ToArray(), 16);
+                }
                 return uiFont;
             }
         }

@@ -35,3 +35,6 @@ __pycache__/
 # Development ZIPs (release ZIPs go to Distribution/ only when publishing)
 *.zip
 !/Distribution/*.zip
+
+# Unity Android native build temp
+/.utmp/

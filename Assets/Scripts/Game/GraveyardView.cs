@@ -21,8 +21,14 @@ namespace MilitaryShogi.Game
         public const int Columns = 3;
         public const int Rows = 11;
         public const float Scale = 0.86f;
-        // Column/row pitch, distance of the first column from the board edge, first row, heading gap.
-        private const float Dx = 0.76f, Dz = 0.84f, Gap = 0.5f, TopZ = 4.3f, HeadingGap = 1.35f;
+        // Column/row pitch, first row, heading gap.
+        private const float Dx = 0.76f, Dz = 0.84f, TopZ = 4.3f, HeadingGap = 1.35f;
+        /// <summary>Width of one loss piece on the table.</summary>
+        public static float PieceWidth { get { return PieceMeshFactory.Width * Scale; } }
+        /// <summary>Empty table between the board edge and the nearest loss column: half a loss piece (1.3.0).</summary>
+        public static float Clearance { get { return 0.5f * PieceWidth; } }
+        // Board edge → centre of the nearest column: clearance plus half a piece. Same on both sides.
+        private static float Gap { get { return Clearance + PieceWidth / 2f; } }
         /// <summary>Loss pieces rest on the table, whose surface is one board thickness below the board top.</summary>
         public static float TableY { get { return -BoardLayout.BoardThickness; } }
 

@@ -14,6 +14,9 @@
 | 製品プロジェクト | Unityプロジェクト（Unity 6.6 = 6000.6.2f1、Built-in Render Pipeline、Mono、Windows x64） |
 | バージョン設定元 | `VERSION.txt`（3桁）。`GameBootstrap.Version` と一致しないとビルドが失敗する。ビルド時に `PlayerSettings.bundleVersion` へ反映 |
 | Windowsリリース出力 | `bin/Release-<Version>/AF-MilitaryShogi.exe`（`Build-Windows.ps1`） |
+| Androidリリース出力 | `bin/Android/Release-<Version>/AF-MilitaryShogi-<Version>.apk`（`Build-Android.ps1`、1.3.0〜）。ARM64/IL2CPP Release、デバッグ不可、シンボルなし。SHA256・マニフェスト・署名の検証結果を併置。Git管理外。一般配布しない |
+| Android署名 | 専用のローカルRelease鍵。鍵とDPAPI暗号化パスワードは `.local/android-signing/`（Git管理外）。同一アプリの更新は同じ鍵で行う |
+| Windows配布ZIP | `Package-Windows.ps1` で `Builds/Package/` に作成・検証（100MB未満、デバッグ成果物なし、同梱README）→ 公開準備で `Prepare-Release.ps1` が `Distribution/` へZIP・SHA256・JSONを配置 |
 | 検証方法 | `Run-Tests.ps1`（ルール・エンジン・CPU・情報境界・強さ/戦い方・あそびかた・プリセット・全局の自動テスト、.NET 9 SDK）、`Build-Windows.ps1`（アプリアイコン設定の確認を含む）、`Run-AutoTest.ps1`（ビルドしたEXEで自動対局を2回：表示モード切替あり/なしの指紋比較、再起動後のユーザーデータ保持、敵駒表面の描画検査、UI状態遷移ストレステスト、損失表示・レイアウト・効果音同期・経過時間・あそびかた一時停止・ロゴ・アイコンの検査、スクリーンショット）。人の手による実プレイ確認・聴感確認は別途 |
 | 公開先 | `Distribution/` |
 | 利用者が別途用意するランタイム・外部ツール | なし（Unityプレイヤー同梱） |
@@ -47,6 +50,8 @@
 - ユーザーデータ（プリセット・設定・UIエラーログ）は `Application.persistentDataPath`（`-dataDir` で変更可）に置き、自動検証は専用フォルダーを使って実ユーザーのデータに触れない。
 - 盤面レイアウトは盤＋左右の損失置き場（31枚分）を1つの視覚グループとして、カメラ角度・パースを保ったまま投影オフセットでプレイ領域の中央へ置く。固定pxの上下調整をしない。損失置き場の自軍・敵軍は面と並び順以外のTransform・影・卓面距離を共通にする。
 - Modal UI（設定・あそびかた・確認ダイアログ等）は `ModalInput` に登録し、最前面のModalだけが入力を持つ。背後のIMGUIは `ModalInput.Background` の中で描き、盤面などUpdateで読む入力は `ModalInput.PointerBlocked` を確認する。背後ボタンを個別に無効化しない。Modal外クリックは閉じずに消費し、閉じたクリックを背後へ渡さない。Modal（入力）と一時停止（時間）は別概念として扱う（1.2.2〜）。
+- Android版（1.3.0〜）は対戦モードのみ。研究モード・思考モニター・Seed操作・CPU真値表示・研究用の履歴とショートカットを載せない。ゲーム本体はPCと共通コードとし、Android専用なのはPresentation（`MobileUi`）だけ。画面回転・バックグラウンドはPresentation／一時停止だけで扱い、GameSession・CPU・乱数・経過時間を作り直さない。
+- 双方の占領可能駒（大将〜少佐）が0になったら引き分け。プレイヤーだけ0になったら審判が一局に一度だけ投了を確認する。CPUは投了しない。CPU側だけ0になったことをプレイヤーへ通知しない（1.3.0〜）。
 - IMGUIの描画は `UiGuard` で包み、例外で入力状態（hotControl・keyboardControl・GUI.enabled・matrix）が残らないようにする。あそびかたと一時停止・timeScaleの整合は `Presentation` のウォッチドッグで保つ。見えないオーバーレイが入力を塞ぐ状態を作らない（EXE自動検証のストレステストで検査）。
 
 ## 構成管理

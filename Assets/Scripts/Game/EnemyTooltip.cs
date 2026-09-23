@@ -95,12 +95,15 @@ namespace MilitaryShogi.Game
         {
             LastText = null;
             if (!enabled || modalOpen || game.View == null || game.KnownFacts == null || game.Phase == Phase.Setup || game.Phase == Phase.Animating || game.Phase == Phase.Finished) return;
-            var piece = PreviewPieceId >= 0 ? game.PieceViews.FirstOrDefault(p => p.Id == PreviewPieceId) : game.PieceAtNode(game.HoverNode);
+            // Test preview, else Android's tapped piece, else the piece under the mouse (PC).
+            bool pinned = PreviewPieceId >= 0 || game.TapInspect;
+            int pinnedId = PreviewPieceId >= 0 ? PreviewPieceId : game.InspectedPieceId;
+            var piece = pinned ? (pinnedId >= 0 ? game.PieceViews.FirstOrDefault(p => p.Id == pinnedId) : null) : game.PieceAtNode(game.HoverNode);
             if (piece == null || piece.IsOwn || !piece.gameObject.activeSelf) return;
             float scale = UiKit.Scale;
             var panels = game.UiRects.Select(r => new Rect(r.x / scale, r.y / scale, r.width / scale, r.height / scale)).ToArray();
             var mouse = new Vector2(Input.mousePosition.x / scale, (Screen.height - Input.mousePosition.y) / scale);
-            if (PreviewPieceId < 0 && panels.Any(r => r.Contains(mouse))) return;
+            if (!pinned && panels.Any(r => r.Contains(mouse))) return;
             if (ui == null) ui = new UiKit();
             var screen = new Rect(8, 8, Screen.width / scale - 16, Screen.height / scale - 16);
             float width = Mathf.Min(370, screen.width);

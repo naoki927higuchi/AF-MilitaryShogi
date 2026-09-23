@@ -52,6 +52,7 @@ namespace MilitaryShogi.Game
             vh = Screen.height / scale;
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
             game.UiRects.Add(new Rect(0, 0, Screen.width, Screen.height));   // block board clicks
+            if (UiKit.Mobile) { DrawMobile(); return; }
 
             ui.Fill(new Rect(0, 0, vw, vh), new Color(0, 0, 0, 0.55f));
             float w = Mathf.Min(1240, vw - 40), h = Mathf.Min(820, vh - 30);
@@ -64,11 +65,87 @@ namespace MilitaryShogi.Game
             if (GUI.Button(new Rect(r.xMax - 128, r.y + 10, 110, 34), "閉じる", ui.Button)) presentation.CloseHelp();
 
             float y = r.y + 52;
-            DrawEndRules(new Rect(r.x + 16, y, w - 32, 78));
-            y += 88;
+            DrawEndRules(new Rect(r.x + 16, y, w - 32, 90));
+            y += 100;
             DrawPieceRow(new Rect(r.x + 16, y, w - 32, 96));
             y += 106;
             DrawDetail(new Rect(r.x + 16, y, w - 32, r.yMax - y - 12));
+        }
+
+        // ------------------------------------------------------------------
+        // Android: the same content as one scrollable column inside the safe area.
+        // ------------------------------------------------------------------
+
+        private readonly TouchScroll mobileScroll = new TouchScroll();
+        private float mobileContentHeight = 1400f;
+
+        private void DrawMobile()
+        {
+            ui.Fill(new Rect(0, 0, vw, vh), new Color(0.05f, 0.04f, 0.03f, 0.98f));
+            var sa = Screen.safeArea;
+            var safe = new Rect(sa.x / scale, (vh * scale - sa.yMax) / scale, sa.width / scale, sa.height / scale);
+            float w = safe.width - 16;
+            GUI.Label(new Rect(safe.x + 10, safe.y + 10, 200, 32), "あそびかた", ui.Big);
+            var close = new Rect(safe.xMax - 118, safe.y + 6, 110, 48);
+            UiKit.Spot("help.close", close);
+            if (GUI.Button(close, "閉じる", ui.Button)) { presentation.CloseHelp(); return; }
+            GUI.Label(new Rect(safe.x + 10, safe.y + 40, w - 120, 20), "対局は一時停止中です", ui.Small);
+            var view = new Rect(safe.x + 8, safe.y + 62, w, safe.height - 66);
+            mobileScroll.Begin(view, mobileContentHeight);
+            float y = 0;
+            // End rules, stacked.
+            y = DrawEndRulesStacked(new Rect(0, y, w, 0));
+            y += 10;
+            // 16 pieces in two rows.
+            int n = PieceCatalog.AllTypes.Length, perRow = 8;
+            float cell = w / perRow, ch = cell * 1.12f;
+            for (int i = 0; i < n; i++)
+            {
+                var t = PieceCatalog.AllTypes[i];
+                var c = new Rect((i % perRow) * cell, y + (i / perRow) * (ch + 4), cell - 4, ch);
+                if (t == Selected) ui.Fill(new Rect(c.x - 2, c.y - 2, c.width + 4, c.height + 4), new Color(0.95f, 0.7f, 0.25f, 0.8f));
+                if (GUI.Button(c, GUIContent.none, GUIStyle.none) && !mobileScroll.Dragging) Selected = t;
+                DrawPiece(new Rect(c.x + 2, c.y + 2, c.width - 4, c.height - 4), t);
+            }
+            y += 2 * (ch + 4) + 10;
+            // Selected piece: image, name, headquarters note.
+            DrawPiece(new Rect(0, y, 96, 108), Selected);
+            GUI.Label(new Rect(108, y + 20, w - 108, 30), PieceCatalog.JapaneseName(Selected) + "（" + PieceCatalog.Count(Selected) + "枚）", new GUIStyle(ui.Big) { fontSize = 22 });
+            GUI.Label(new Rect(108, y + 56, w - 108, 40), PieceCatalog.CanCaptureHeadquarters(Selected) ? "敵総司令部を占領できる" : "総司令部の占領はできない", ui.Small);
+            y += 118;
+            y = DrawCombat(new Rect(0, y, w, 400)) + 10;
+            y = DrawMovement(new Rect(0, y, w, 420)) + 20;
+            if (Event.current.type == EventType.Repaint) mobileContentHeight = y;
+            mobileScroll.End();
+        }
+
+        private float DrawEndRulesStacked(Rect r)
+        {
+            var cfg = new MatchConfig();
+            string[] titles = { "勝利", "敗北", "引き分け（本作の対局終了ルール）" };
+            string[] lines = EndRuleLines(cfg);
+            Color[] colors = { new Color(0.3f, 0.55f, 0.3f, 0.35f), new Color(0.6f, 0.25f, 0.2f, 0.35f), new Color(0.5f, 0.45f, 0.3f, 0.3f) };
+            float y = r.y;
+            for (int i = 0; i < 3; i++)
+            {
+                float h = 30 + ui.Small.CalcHeight(new GUIContent(lines[i]), r.width - 20) + 8;
+                var c = new Rect(r.x, y, r.width, h);
+                ui.Fill(c, colors[i]);
+                GUI.Label(new Rect(c.x + 10, c.y + 4, c.width - 20, 22), titles[i], ui.Header);
+                GUI.Label(new Rect(c.x + 10, c.y + 28, c.width - 20, h - 30), lines[i], ui.Small);
+                y += h + 6;
+            }
+            return y;
+        }
+
+        private static string[] EndRuleLines(MatchConfig cfg)
+        {
+            return new[]
+            {
+                "・大将〜少佐で敵の総司令部を占領\n・敵に動かせる駒がなくなる",
+                "・敵に総司令部を占領される\n・自軍に動かせる駒がなくなる\n・投了する（大将〜少佐を全て失ったとき審判が確認）",
+                "・双方とも大将〜少佐がいなくなった\n・総" + cfg.MaxPlies + "手に達した\n・" + cfg.MaxPliesWithoutCombat + "手連続で戦闘がない",
+            };
         }
 
         private void DrawEndRules(Rect r)
@@ -76,19 +153,14 @@ namespace MilitaryShogi.Game
             var cfg = new MatchConfig();
             float cw = (r.width - 16) / 3f;
             string[] titles = { "勝利", "敗北", "引き分け（本作の対局終了ルール）" };
-            string[] lines =
-            {
-                "・大将〜少佐で敵の総司令部を占領\n・敵に動かせる駒がなくなる",
-                "・敵に総司令部を占領される\n・自軍に動かせる駒がなくなる",
-                "・総" + cfg.MaxPlies + "手に達した\n・" + cfg.MaxPliesWithoutCombat + "手連続で戦闘がない",
-            };
+            string[] lines = EndRuleLines(cfg);
             Color[] colors = { new Color(0.3f, 0.55f, 0.3f, 0.35f), new Color(0.6f, 0.25f, 0.2f, 0.35f), new Color(0.5f, 0.45f, 0.3f, 0.3f) };
             for (int i = 0; i < 3; i++)
             {
                 var c = new Rect(r.x + i * (cw + 8), r.y, cw, r.height);
                 ui.Fill(c, colors[i]);
                 GUI.Label(new Rect(c.x + 10, c.y + 4, c.width - 20, 22), titles[i], ui.Header);
-                GUI.Label(new Rect(c.x + 10, c.y + 28, c.width - 20, 48), lines[i], ui.Small);
+                GUI.Label(new Rect(c.x + 10, c.y + 26, c.width - 20, r.height - 28), lines[i], ui.Small);
             }
         }
 
@@ -131,7 +203,7 @@ namespace MilitaryShogi.Game
             DrawMovement(new Rect(r.xMax - 348, r.y, 348, r.height));
         }
 
-        private void DrawCombat(Rect r)
+        private float DrawCombat(Rect r)
         {
             GUI.Label(new Rect(r.x, r.y, r.width, 24), "戦闘相性（攻めても守っても同じ）", ui.Header);
             float y = r.y + 30;
@@ -156,14 +228,18 @@ namespace MilitaryShogi.Game
                 GUI.Label(new Rect(r.x, y, r.width, 120),
                     "軍旗は自分の強さを持たず、戦闘の時点で <b>同じ列のすぐ後ろ（自陣の奥側）にいる味方の駒と同じ強さ</b> で戦う。\n" +
                     "後ろが空いている、または敵の駒なら、どの駒にも負ける。\n軍旗が負けても後ろの駒は取り除かれない。動けない。", ui.Label);
-                return;
+                return y + ui.Label.CalcHeight(new GUIContent("軍旗は自分の強さを持たず、戦闘の時点で同じ列のすぐ後ろ（自陣の奥側）にいる味方の駒と同じ強さで戦う。\n後ろが空いている、または敵の駒なら、どの駒にも負ける。\n軍旗が負けても後ろの駒は取り除かれない。動けない。"), r.width);
             }
             y = Row(r, y, "勝てる", RuleReference.Opponents(Selected, Relation.Wins), new Color(0.45f, 0.9f, 0.5f));
             y = Row(r, y, "相打ち（両方取り除く）", RuleReference.Opponents(Selected, Relation.Ties), new Color(1f, 0.85f, 0.35f));
             y = Row(r, y, "負ける", RuleReference.Opponents(Selected, Relation.Loses), new Color(1f, 0.5f, 0.45f));
             y = Row(r, y, "後ろの駒しだい", RuleReference.Opponents(Selected, Relation.DependsOnBacker), new Color(0.75f, 0.75f, 0.75f));
             if (Selected == PieceType.Mine)
+            {
                 GUI.Label(new Rect(r.x, y, r.width, 22), "地雷は動けないので、地雷どうしが戦うことはない。", ui.Small);
+                y += 24;
+            }
+            return y;
         }
 
         private float Row(Rect r, float y, string title, List<PieceType> list, Color color)
@@ -182,22 +258,27 @@ namespace MilitaryShogi.Game
             return y + ph + 8;
         }
 
-        private void DrawMovement(Rect r)
+        private float DrawMovement(Rect r)
         {
             var cls = PieceCatalog.MoveClassOf(Selected);
             GUI.Label(new Rect(r.x, r.y, r.width, 24), "動き方", ui.Header);
-            GUI.Label(new Rect(r.x, r.y + 26, r.width, 40), RuleReference.MoveSummary(Selected), ui.Small);
+            GUI.Label(new Rect(r.x, r.y + 26, r.width, Mathf.Max(40f, ui.Small.CalcHeight(new GUIContent(RuleReference.MoveSummary(Selected)), r.width))), RuleReference.MoveSummary(Selected), ui.Small);
             var ex = RuleReference.Example(cls);
-            float cell = 26f, band = 22f;
-            float bx = r.x + (r.width - cell * 8) / 2f, by = r.y + 70;
+            float cell = UiKit.Mobile ? Mathf.Min(40f, r.width / 8.5f) : 26f, band = UiKit.Mobile ? cell * 0.85f : 22f;
+            float summary = Mathf.Max(40f, ui.Small.CalcHeight(new GUIContent(RuleReference.MoveSummary(Selected)), r.width));
+            float bx = r.x + (r.width - cell * 8) / 2f, by = r.y + 30 + summary;
             DrawMiniBoard(ex, bx, by, cell, band);
             float ly = by + cell * 8 + band + 10;
             foreach (var line in ex.Lines)
             {
-                GUI.Label(new Rect(r.x, ly, r.width, 22), "・" + line, ui.Small);
-                ly += 22;
+                float lh = Mathf.Max(22f, ui.Small.CalcHeight(new GUIContent("・" + line), r.width));
+                GUI.Label(new Rect(r.x, ly, r.width, lh), "・" + line, ui.Small);
+                ly += lh;
             }
-            GUI.Label(new Rect(r.x, ly + 2, r.width, 40), "<size=11>図：金＝この駒　緑●＝移動できる　赤×＝攻撃できる　白＝味方　黒＝敵　◎＝中央丸（手前が自陣）</size>", ui.Small);
+            const string legend = "<size=11>図：金＝この駒　緑●＝移動できる　赤×＝攻撃できる　白＝味方　黒＝敵　◎＝中央丸（手前が自陣）</size>";
+            float legendHeight = Mathf.Max(40f, ui.Small.CalcHeight(new GUIContent(legend), r.width));
+            GUI.Label(new Rect(r.x, ly + 2, r.width, legendHeight), legend, ui.Small);
+            return ly + 2 + legendHeight;
         }
 
         private static Vector2 CellCenter(int node, float bx, float by, float cell, float band)

@@ -42,6 +42,9 @@ namespace MilitaryShogi.Game
         private CpuPlayer humanDriver;
         public const string PersistedPresetName = "自動検証の配置";
         public const int PersistedVolume = 37;
+        private string finalFingerprint, mainSummary, mainCpu;
+        private bool mainFinished;
+        private int mainCombats;
 
         public void Begin(GameController controller, string outputDir, bool toggle)
         {
@@ -137,6 +140,13 @@ namespace MilitaryShogi.Game
             if (playUi.LastResultText == null || !playUi.LastResultText.Contains("TURN") || !playUi.LastResultText.Contains("経過")) Fail("result modal lacks TURN/経過: " + playUi.LastResultText);
             CheckSoundSync();
             yield return CheckSoundSettings();
+            // Summary of the deterministic game, taken before the checks below start new games.
+            finalFingerprint = game.Session.Fingerprint();
+            mainFinished = game.IsFinished;
+            mainSummary = "result = " + game.ResultText() + " after " + game.Ply + " plies, clock " + UiKit.FormatClock(game.ElapsedSeconds);
+            mainCpu = "CPU decisions = " + game.Cpu.Reports.Count + ", avg think ms = " + (game.Cpu.Reports.Count > 0 ? game.Cpu.Reports.Average(r => r.ThinkMilliseconds).ToString("0.0") : "-");
+            mainCombats = game.Combats.Count;
+            yield return CheckJudgeAndResign();
             Finish();
         }
 
@@ -519,15 +529,15 @@ namespace MilitaryShogi.Game
         private void Finish()
         {
             var sb = new StringBuilder();
-            bool pass = violations == 0 && failures == 0 && game.IsFinished;
+            bool pass = violations == 0 && failures == 0 && mainFinished;
             sb.AppendLine("AF-MilitaryShogi autotest " + GameBootstrap.Version + (toggleModes ? " (-toggleModes)" : "") + (expectPersisted ? " (-expectPersisted)" : ""));
             sb.AppendLine("seeds P/C/D = " + game.Settings.PlayerFormationSeed + "/" + game.Settings.CpuFormationSeed + "/" + game.Settings.CpuDecisionSeed);
             sb.AppendLine("CPU = " + CpuProfile.StrengthName(game.Settings.Strength) + " / " + CpuProfile.TemperamentName(game.Settings.Temperament) + " / style " + FormationStyles.JapaneseName(game.Cpu.Style));
-            sb.AppendLine("result = " + game.ResultText() + " after " + game.Ply + " plies, clock " + UiKit.FormatClock(game.ElapsedSeconds));
+            sb.AppendLine(mainSummary);
             sb.AppendLine("frames checked = " + framesChecked + ", enemy material checks = " + enemyRendererChecks + ", violations = " + violations);
-            sb.AppendLine("CPU decisions = " + game.Cpu.Reports.Count + ", avg think ms = " + (game.Cpu.Reports.Count > 0 ? game.Cpu.Reports.Average(r => r.ThinkMilliseconds).ToString("0.0") : "-"));
-            sb.AppendLine("combats = " + game.Combats.Count + ", loss-area checks = " + graveyardChecks + ", mode toggles = " + toggles + ", UI errors = " + UiGuard.ErrorCount + ", watchdog repairs = " + presentation.WatchdogRepairs + ", failures = " + failures);
-            sb.AppendLine("FINAL_FINGERPRINT=" + game.Session.Fingerprint());
+            sb.AppendLine(mainCpu);
+            sb.AppendLine("combats = " + mainCombats + ", loss-area checks = " + graveyardChecks + ", mode toggles = " + toggles + ", UI errors = " + UiGuard.ErrorCount + ", watchdog repairs = " + presentation.WatchdogRepairs + ", failures = " + failures);
+            sb.AppendLine("FINAL_FINGERPRINT=" + finalFingerprint);
             sb.AppendLine(pass ? "PASS" : "FAIL");
             sb.AppendLine();
             foreach (var l in log) sb.AppendLine(l);

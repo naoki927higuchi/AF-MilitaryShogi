@@ -54,7 +54,22 @@ namespace MilitaryShogi.Game
             GUILayout.Space(8);
         }
 
-        public static float Scale { get { return Mathf.Clamp(Screen.height / VirtualHeight, 0.75f, 2.5f); } }
+        /// <summary>Android layout (also forced on PC with -mobileui for layout checks).</summary>
+        public static bool Mobile;
+
+        /// <summary>
+        /// Pixels per UI unit. PC: the window height relative to 900. Android: density-independent
+        /// pixels (dpi / 160), so buttons keep a physical size fit for fingers in both orientations.
+        /// </summary>
+        public static float Scale
+        {
+            get
+            {
+                if (!Mobile) return Mathf.Clamp(Screen.height / VirtualHeight, 0.75f, 2.5f);
+                if (Application.isMobilePlatform && Screen.dpi > 0) return Mathf.Clamp(Screen.dpi / 160f, 1f, 4f);
+                return Mathf.Clamp(Mathf.Min(Screen.width, Screen.height) / 411f, 0.75f, 4f);   // PC emulation of a phone
+            }
+        }
 
         /// <summary>
         /// Where named controls were last drawn (window pixels, top-left origin), recorded on Repaint.
@@ -64,7 +79,14 @@ namespace MilitaryShogi.Game
 
         public static void Spot(string key, Rect guiRect)
         {
-            if (Event.current != null && Event.current.type == EventType.Repaint) Spots[key] = GUIUtility.GUIToScreenPoint(guiRect.center);
+            if (Event.current == null || Event.current.type != EventType.Repaint) return;
+            // GUIToScreenPoint adds the offsets of enclosing groups/areas without GUI.matrix scaling
+            // (measured on Android, UI scale 2.8). Scale that part too; at scale 1 (PC) nothing changes.
+            float s = GUI.matrix.m00;
+            Vector2 local = guiRect.center;
+            Vector2 raw = GUIUtility.GUIToScreenPoint(local);
+            Vector2 groups = raw - local * s;
+            Spots[key] = local * s + groups * s;
         }
 
         /// <summary>Records the last GUILayout control.</summary>

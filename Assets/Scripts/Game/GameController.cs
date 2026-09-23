@@ -48,7 +48,12 @@ namespace MilitaryShogi.Game
         public BoardView Board;
         public GraveyardView Graveyard;
 
-        [Flags] public enum PauseReason { None = 0, Help = 1, Test = 2 }
+        /// <summary>
+        /// Why the game is paused. Help: 「あそびかた」. Judge: the referee's resignation notice.
+        /// Background: the app lost focus / went to the background (Android). Test: auto-test.
+        /// Any reason stops CPU turns, animations and the clock.
+        /// </summary>
+        [Flags] public enum PauseReason { None = 0, Help = 1, Test = 2, Judge = 4, Background = 8 }
         private PauseReason pauseReasons;
 
         /// <summary>While true (「あそびかた」 open) nothing advances: no input, no CPU turn, no animation, no clock.</summary>
@@ -103,6 +108,10 @@ namespace MilitaryShogi.Game
             StopAllCoroutines();
             thinking = null;
             KnownFacts = null;
+            ResignNoticeOpen = false;
+            resignNoticeShown = false;
+            InspectedPieceId = -1;
+            SetPause(PauseReason.Judge, false);
             if (randomizeSeeds)
             {
                 // Seed choice is presentation-side randomness; the game itself only uses DeterministicRandom.
@@ -290,6 +299,7 @@ namespace MilitaryShogi.Game
             if (Graveyard != null) Graveyard.Sync(View);
             SelectedNode = -1;
             ElapsedSeconds = 0;
+            resignNoticeShown = false;
             Phase = Phase.PlayerTurn;
             if (revealEnemies) ApplyEnemyFaces();
             StatusText = "あなたの手番です";
@@ -303,7 +313,9 @@ namespace MilitaryShogi.Game
         private void Update()
         {
             // Clock: runs from 対局開始 until the result is decided; only 「あそびかた」 (pause) stops it.
-            if (!Paused && Session.Started && !IsFinished) ElapsedSeconds += Time.unscaledDeltaTime;
+            // A single frame never adds more than 0.5 s, so returning from the background (Android) or a
+            // stall cannot add the time the game was not running.
+            if (!Paused && Session.Started && !IsFinished) ElapsedSeconds += Mathf.Min(Time.unscaledDeltaTime, 0.5f);
             if (Paused) return;
             // A modal UI (設定・あそびかた・確認) owns the pointer: no hover, selection or moves behind it.
             bool pointer = !ModalInput.PointerBlocked;
@@ -317,7 +329,11 @@ namespace MilitaryShogi.Game
                     if (pointer && Input.GetMouseButtonDown(0) && !MouseOverUi()) PlayClick(HoverNode);
                     else if (pointer && Input.GetMouseButtonDown(1)) Select(-1);
                     break;
+                case Phase.Animating:
+                    if (TapInspect && pointer && Input.GetMouseButtonDown(0) && !MouseOverUi()) Inspect(HoverNode);
+                    break;
                 case Phase.CpuThinking:
+                    if (TapInspect && pointer && Input.GetMouseButtonDown(0) && !MouseOverUi()) Inspect(HoverNode);
                     if (thinking != null && thinking.IsCompleted && Time.time - thinkingSince >= (Settings.Effect == EffectMode.Normal ? 0.35f : 0.15f) / Settings.EffectSpeed)
                     {
                         if (thinking.IsFaulted) { Debug.LogException(thinking.Exception); StatusText = "CPU思考エラー: " + thinking.Exception.InnerException?.Message; thinking = null; return; }
@@ -344,6 +360,8 @@ namespace MilitaryShogi.Game
 
         private void UpdateHover(bool pointer)
         {
+            // Touch has no hover: the node under the finger only matters at the moment of the tap.
+            if (TapInspect && !Input.GetMouseButtonDown(0)) { HoverNode = -1; return; }
             HoverNode = !pointer || MouseOverUi() ? -1 : PickAtScreen(Input.mousePosition);
         }
 
@@ -371,8 +389,36 @@ namespace MilitaryShogi.Game
             return PieceViews.FirstOrDefault(v => v.gameObject.activeSelf && v.Node == node);
         }
 
+        // ------------------------------------------------------------------
+        // Android: tap an enemy piece to see its public observations (no hover on touch screens)
+        // ------------------------------------------------------------------
+
+        /// <summary>Android: a tap on an enemy piece shows its observations instead of hover.</summary>
+        public bool TapInspect;
+        /// <summary>Enemy piece whose observations are shown (Android), or -1.</summary>
+        public int InspectedPieceId { get; private set; } = -1;
+
+        private void Inspect(int node)
+        {
+            var enemy = node >= 0 && View != null ? View.Enemy.FirstOrDefault(e => e.Alive && e.Node == node) : null;
+            InspectedPieceId = enemy != null ? enemy.Id : -1;
+        }
+
+        public void ClearInspection() { InspectedPieceId = -1; }
+
+        /// <summary>Target nodes of the selected piece (player's turn).</summary>
+        public List<int> PlayTargets() { return targets.Select(t => t.To).ToList(); }
+
         private void PlayClick(int node)
         {
+            if (TapInspect)
+            {
+                // Enemy piece that is not an attack target of the selected piece: inspect it.
+                var enemy = node >= 0 ? View.Enemy.FirstOrDefault(e => e.Alive && e.Node == node) : null;
+                bool attack = SelectedNode >= 0 && targets.Any(t => t.To == node);
+                if (enemy != null && !attack) { Select(-1); InspectedPieceId = enemy.Id; return; }
+                InspectedPieceId = -1;
+            }
             if (node < 0) { Select(-1); return; }
             if (SelectedNode >= 0)
             {
@@ -433,11 +479,14 @@ namespace MilitaryShogi.Game
             if (Graveyard != null) Graveyard.Sync(View);
             ShowLastMove();
             if (PlyFinished != null) PlyFinished(record);
+            // Referee notice, once per game: the player has just lost the last piece that can capture the
+            // headquarters. Only the player's own pieces are looked at (no hidden information). The CPU
+            // is never told anything and never resigns.
+            if (Session.Match.Status == GameStatus.Playing && !resignNoticeShown && !PlayerHasCapturer)
+                yield return JudgeNotice();
             if (Session.Match.Status == GameStatus.Finished)
             {
-                if (Audio != null) Audio.Play(Sfx.End);
-                Phase = Phase.Finished;
-                StatusText = ResultText();
+                EnterFinished();
                 yield break;
             }
             if (Session.Match.ToMove == Computer)
@@ -573,13 +622,98 @@ namespace MilitaryShogi.Game
             if (ToppleTimings.Count > 1000) ToppleTimings.RemoveRange(0, 250);
         }
 
+        // ------------------------------------------------------------------
+        // Referee notice and resignation (1.3.0)
+        // ------------------------------------------------------------------
+
+        private bool resignNoticeShown;
+
+        /// <summary>The referee's one-time notice 「総司令部を占領できる駒がなくなりました／投了しますか？」 is open.</summary>
+        public bool ResignNoticeOpen { get; private set; }
+
+        /// <summary>Whether the player still has 大将〜少佐 on the board (own pieces only).</summary>
+        public bool PlayerHasCapturer { get { return View != null && View.Own.Any(p => p.Alive && PieceCatalog.CanCaptureHeadquarters(p.Type)); } }
+
+        private IEnumerator JudgeNotice()
+        {
+            resignNoticeShown = true;
+            ResignNoticeOpen = true;
+            SetPause(PauseReason.Judge, true);     // game and clock stop while the notice is open
+            StatusText = "審判：総司令部を占領できる駒がなくなりました";
+            while (ResignNoticeOpen) yield return null;
+            SetPause(PauseReason.Judge, false);
+        }
+
+        private void EnterFinished()
+        {
+            if (Audio != null) Audio.Play(Sfx.End);
+            Phase = Phase.Finished;
+            StatusText = ResultText();
+        }
+
+        /// <summary>
+        /// Test hook (auto-test): show the referee notice on the player's turn through the same routine
+        /// as a real game, then finish the game if the player resigned.
+        /// </summary>
+        public void TestJudgeNotice()
+        {
+            if (Phase != Phase.PlayerTurn || resignNoticeShown) return;
+            StartCoroutine(TestJudgeNoticeRoutine());
+        }
+
+        private IEnumerator TestJudgeNoticeRoutine()
+        {
+            var phase = Phase;
+            Phase = Phase.Animating;
+            yield return JudgeNotice();
+            if (Session.Match.Status == GameStatus.Finished) EnterFinished();
+            else { Phase = phase; StatusText = "あなたの手番です"; }
+        }
+
+        /// <summary>「続行」: close the notice; it is not shown again in this game.</summary>
+        public void ContinueAfterNotice()
+        {
+            if (!ResignNoticeOpen) return;
+            ResignNoticeOpen = false;
+            StatusText = "対局を続行します";
+        }
+
+        /// <summary>「投了」: the player resigns, the CPU wins (EndReason.Resigned).</summary>
+        public void ResignFromNotice()
+        {
+            if (!ResignNoticeOpen || Session.Match.Status != GameStatus.Playing) return;
+            Session.ResignPlayer();
+            ResignNoticeOpen = false;   // the ply coroutine continues and finishes the game
+        }
+
+        /// <summary>Result headline: 「あなたの勝ち」「CPUの勝ち」「引き分け」.</summary>
+        public string ResultTitle()
+        {
+            var match = Session.Match;
+            if (match == null || match.Status != GameStatus.Finished) return "";
+            return match.Winner == null ? "引き分け" : match.Winner == Human ? "あなたの勝ち" : "CPUの勝ち";
+        }
+
+        /// <summary>Why the game ended, in words.</summary>
+        public string ResultReason()
+        {
+            var match = Session.Match;
+            if (match == null || match.Status != GameStatus.Finished) return "";
+            switch (match.EndReason)
+            {
+                case EndReason.HeadquartersCaptured: return "総司令部占領";
+                case EndReason.NoLegalMoves: return "相手に動かせる駒がない";
+                case EndReason.NoCapturers: return "双方とも総司令部を占領できる駒がなくなりました";
+                case EndReason.Resigned: return "投了（あなたが投了しました）";
+                default: return "手数制限";
+            }
+        }
+
         public string ResultText()
         {
             var match = Session.Match;
             if (match == null || match.Status != GameStatus.Finished) return "";
-            string reason = match.EndReason == EndReason.HeadquartersCaptured ? "総司令部占領" : match.EndReason == EndReason.NoLegalMoves ? "相手に動かせる駒がない" : "手数制限";
-            if (match.Winner == null) return "引き分け（" + reason + "）";
-            return (match.Winner == Human ? "あなたの勝ち" : "CPUの勝ち") + "（" + reason + "）";
+            return ResultTitle() + "（" + ResultReason() + "）";
         }
 
         public bool IsFinished { get { return Session.Match != null && Session.Match.Status == GameStatus.Finished; } }

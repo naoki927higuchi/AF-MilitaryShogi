@@ -30,7 +30,18 @@ namespace MilitaryShogi.Game
         /// <summary>Top bar / bottom bar height in play mode (pixels).</summary>
         public float PlayTop = 72f, PlayBottom = 36f;
 
-        public bool GraveyardsVisible { get { return Mode == PresentationMode.Play || !MonitorOpen; } }
+        public bool GraveyardsVisible { get { return (Mode == PresentationMode.Play || !MonitorOpen) && !HideGraveyards3D; } }
+
+        /// <summary>Result dialog (modal). 「盤面を見る」 dismisses it until the next game.</summary>
+        public bool ResultDismissed;
+        public bool ResultOpen { get { return game != null && game.Phase == Phase.Finished && !ResultDismissed; } }
+
+        /// <summary>Android portrait shows the losses as compact 2D rows instead of the 3D tables.</summary>
+        public bool HideGraveyards3D;
+        /// <summary>Android: the board area (GUI pixels) chosen by the mobile layout; replaces PlayTop/PlayBottom.</summary>
+        public Rect? PlayAreaOverride;
+        /// <summary>Research mode is not available (Android).</summary>
+        public bool ResearchAvailable = true;
         public bool EnemyRevealActive { get { return Mode == PresentationMode.Research && RevealCpuPieces; } }
 
         private GameController game;
@@ -42,20 +53,23 @@ namespace MilitaryShogi.Game
         public void Bind(GameController controller)
         {
             game = controller;
-            // Input-modal UI (see ModalInput). Help is in front of everything.
+            // Input-modal UI (see ModalInput). The referee's notice and help are in front of everything.
+            ModalInput.Register("judge", 110, () => game.ResignNoticeOpen);
             ModalInput.Register("help", 100, () => HelpOpen);
             ModalInput.Register("settings", 50, () => SettingsOpen);
+            ModalInput.Register("result", 40, () => ResultOpen);
+            controller.SetupStarted += () => ResultDismissed = false;
         }
 
         public void SetMode(PresentationMode mode)
         {
-            if (mode == Mode) return;
+            if (mode == Mode || (mode == PresentationMode.Research && !ResearchAvailable)) return;
             Mode = mode;
             SettingsOpen = false;
             if (ModeChanged != null) ModeChanged(mode);
         }
 
-        public void Toggle() { SetMode(Mode == PresentationMode.Play ? PresentationMode.Research : PresentationMode.Play); }
+        public void Toggle() { if (ResearchAvailable) SetMode(Mode == PresentationMode.Play ? PresentationMode.Research : PresentationMode.Play); }
 
         public void OpenHelp()
         {
@@ -68,6 +82,30 @@ namespace MilitaryShogi.Game
         {
             HelpOpen = false;
             game.SetPause(GameController.PauseReason.Help, false);
+        }
+
+        // ------------------------------------------------------------------
+        // Android lifecycle: in the background (home, other app, screen off, focus lost) the game is
+        // paused – no CPU turn, no animation, no clock – and resumes in the same session.
+        // ------------------------------------------------------------------
+
+        private bool appPaused, appUnfocused;
+        /// <summary>How often the app went to the background (for tests and diagnostics).</summary>
+        public int BackgroundCount { get; private set; }
+        public bool InBackground { get { return appPaused || appUnfocused; } }
+
+        private void OnApplicationPause(bool paused) { appPaused = paused; ApplyBackground(); }
+        private void OnApplicationFocus(bool focused) { appUnfocused = !focused; ApplyBackground(); }
+
+        /// <summary>Simulate the lifecycle (probe on PC/device).</summary>
+        public void SimulateBackground(bool background) { appPaused = background; appUnfocused = false; ApplyBackground(); }
+
+        private void ApplyBackground()
+        {
+            if (game == null || !UiKit.Mobile) return;   // PC: alt-tab does not pause a running game
+            bool pausedBefore = (game.PauseReasons & GameController.PauseReason.Background) != 0;
+            if (InBackground && !pausedBefore) BackgroundCount++;
+            game.SetPause(GameController.PauseReason.Background, InBackground);
         }
 
         private void Update()
@@ -84,7 +122,12 @@ namespace MilitaryShogi.Game
             game.Graveyard.SetVisible(GraveyardsVisible);
             game.SetEnemyReveal(EnemyRevealActive);
             Rect rect;
-            if (Mode == PresentationMode.Play)
+            if (Mode == PresentationMode.Play && PlayAreaOverride.HasValue)
+            {
+                var a = PlayAreaOverride.Value;   // GUI pixels (top-left origin) → viewport
+                rect = new Rect(a.x / Screen.width, 1f - a.yMax / Screen.height, a.width / Screen.width, a.height / Screen.height);
+            }
+            else if (Mode == PresentationMode.Play)
                 rect = new Rect(0, PlayBottom / Screen.height, 1, 1 - (PlayTop + PlayBottom) / Screen.height);
             else
                 rect = new Rect(ResearchBoardArea.x / Screen.width, 0, ResearchBoardArea.width / Screen.width, 1f - ResearchBoardArea.y / Screen.height);

@@ -213,6 +213,45 @@ namespace MilitaryShogi.Game
             yield return Click(BoardPoint(ownPiece));
             Check(game.SelectedNode == ownPiece, "after closing: the next board click selects normally (selected " + game.SelectedNode + ", hover " + game.HoverNode
                 + ", phase " + game.Phase + ", blocked " + ModalInput.PointerBlocked + ", overUi " + game.IsOverUi(BoardPoint(ownPiece)) + ")");
+            // ---- 1.3.0: referee notice and result are modals too ----
+            string beforeNotice = State();
+            game.TestJudgeNotice();
+            yield return Frames(6);
+            before = State(); lastBefore = before;
+            // "Behind" means outside the notice: a board piece left or right of the dialog.
+            Vector2 tl = Spot("judge.panelTL"), br = Spot("judge.panelBR");
+            int outside = game.View.Own.Where(p => p.Alive).Select(p => p.Node)
+                .OrderBy(n => Mathf.Min(Mathf.Abs(BoardPoint(n).x - tl.x), Mathf.Abs(BoardPoint(n).x - br.x)))
+                .FirstOrDefault(n => BoardPoint(n).x < tl.x - 10 || BoardPoint(n).x > br.x + 10 || BoardPoint(n).y > br.y + 10 || BoardPoint(n).y < tl.y - 10);
+            yield return Click(Spot("play.research"));
+            yield return Click(BoardPoint(outside));
+            yield return Click(blank);
+            Check(game.ResignNoticeOpen && State() == before && presentation.Mode == PresentationMode.Play, "審判の確認: clicks behind (研究モードへ, board, empty space) do nothing");
+            c0 = game.ElapsedSeconds;
+            yield return new WaitForSecondsRealtime(1.0f);
+            Check(Math.Abs(game.ElapsedSeconds - c0) < 1e-6, "審判の確認: clock stopped");
+            yield return Click(Spot("judge.continue"));
+            lastBefore = beforeNotice;   // 続行 returns to exactly the state before the notice (player's turn)
+            Check(!game.ResignNoticeOpen && State() == beforeNotice, "審判の確認: 「続行」 closes it and does not reach the UI behind");
+            // Result: a new game, resign through the real 「投了」 button.
+            game.NewSetup(false);
+            game.StartGame();
+            yield return Frames(10);
+            game.TestJudgeNotice();
+            yield return Frames(6);
+            yield return Click(Spot("judge.resign"));
+            yield return Frames(10);
+            Check(game.IsFinished && presentation.ResultOpen && ModalInput.Top == "result", "「投了」 ends the game and shows the result modal");
+            before = State(); lastBefore = before;
+            yield return Click(Spot("play.research"));
+            yield return Click(Spot("play.settings"));
+            Check(presentation.Mode == PresentationMode.Play && !presentation.SettingsOpen && State() == before, "結果: header buttons behind do nothing");
+            yield return Click(Spot("result.board"));
+            Check(!presentation.ResultOpen && presentation.Mode == PresentationMode.Play && !presentation.SettingsOpen, "結果: 「盤面を見る」 closes only the result");
+            yield return Click(Spot("play.settings"));
+            Check(presentation.SettingsOpen, "after the result: header works again");
+            yield return Click(Spot("settings.close"));
+
             Check(UiGuard.ErrorCount == 0, "no UI exceptions (" + UiGuard.ErrorCount + ")");
 
             sb.AppendLine(pass ? "PASS" : "FAIL");

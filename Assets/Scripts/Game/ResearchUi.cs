@@ -154,8 +154,9 @@ namespace MilitaryShogi.Game
                 if (showHistory) DrawHistory();
                 if (showMonitor) DrawMonitor();
                 game.Tooltip.Draw(presentation.HelpOpen || presentation.SettingsOpen, presentation.RevealCpuPieces, true);
-                if (game.Phase == Phase.Finished) DrawResult();
             }
+            if (presentation.ResultOpen)
+                using (ModalInput.Background(top != "result")) DrawResult();
             if (presentation.SettingsOpen)
                 using (ModalInput.Background(top != "settings")) DrawSettings();
         }
@@ -353,13 +354,16 @@ namespace MilitaryShogi.Game
         private void DrawResult()
         {
             float centre = (LeftColumn + vw - (showMonitor ? MonitorWidth() : 0)) / 2f;
-            var r = Region(new Rect(centre - 220, vh / 2 - 70, 440, 140));
+            var r = Region(new Rect(centre - 240, vh / 2 - 84, 480, 168));
             GUI.Box(r, GUIContent.none, panel);
-            GUI.Label(new Rect(r.x, r.y + 12, r.width, 36), game.ResultText(), new GUIStyle(title) { alignment = TextAnchor.MiddleCenter });
-            LastResultText = "TURN " + game.Ply + "　経過 " + UiKit.FormatClock(game.ElapsedSeconds);
-            GUI.Label(new Rect(r.x + 20, r.y + 48, r.width - 40, 22), LastResultText, new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
-            GUI.Label(new Rect(r.x + 20, r.y + 70, r.width - 40, 22), "撃破した敵駒の正体は終局後も公開されません。", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
-            if (GUI.Button(new Rect(r.x + r.width / 2 - 70, r.y + 94, 140, 32), "新規対局", button)) { game.NewSetup(false); SyncSeedFields(); }
+            GUI.Label(new Rect(r.x, r.y + 10, r.width, 34), game.ResultTitle(), new GUIStyle(title) { alignment = TextAnchor.MiddleCenter });
+            GUI.Label(new Rect(r.x + 20, r.y + 44, r.width - 40, 22), game.ResultReason(), new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
+            string clock = "TURN " + game.Ply + "　経過 " + UiKit.FormatClock(game.ElapsedSeconds);
+            LastResultText = game.ResultText() + "　" + clock;
+            GUI.Label(new Rect(r.x + 20, r.y + 68, r.width - 40, 22), clock, new GUIStyle(label) { alignment = TextAnchor.MiddleCenter });
+            GUI.Label(new Rect(r.x + 20, r.y + 90, r.width - 40, 22), "撃破した敵駒の正体は終局後も公開されません。", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+            if (GUI.Button(new Rect(r.x + r.width / 2 - 150, r.y + 120, 140, 32), "盤面を見る", button)) presentation.ResultDismissed = true;
+            if (GUI.Button(new Rect(r.x + r.width / 2 + 10, r.y + 120, 140, 32), "新規対局", button)) { game.NewSetup(false); SyncSeedFields(); }
         }
 
         // ------------------------------------------------------------------

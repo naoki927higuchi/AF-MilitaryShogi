@@ -10,6 +10,56 @@ namespace MilitaryShogi.Game
     public sealed partial class AutoPilot
     {
         private readonly HashSet<string> effectCombos = new HashSet<string>();
+        private bool clearanceLogged;
+
+        /// <summary>
+        /// 1.3.0 referee notice and resignation, on fresh games after the deterministic one:
+        /// 続行 closes it for the rest of the game (not shown again); 投了 ends the game as a CPU win by
+        /// resignation; the notice and the result are modals (input blocked, game and clock paused).
+        /// </summary>
+        private IEnumerator CheckJudgeAndResign()
+        {
+            if (presentation.Mode != PresentationMode.Play) presentation.SetMode(PresentationMode.Play);
+            // Game 1: 続行.
+            game.NewSetup(false);
+            game.StartGame();
+            yield return WaitFrames(5);
+            game.TestJudgeNotice();
+            yield return WaitFrames(5);
+            if (!game.ResignNoticeOpen || ModalInput.Top != "judge") Fail("referee notice not open as the frontmost modal");
+            if (!game.Paused || Time.timeScale != 0f) Fail("game not paused under the referee notice");
+            double c0 = game.ElapsedSeconds;
+            yield return new WaitForSecondsRealtime(0.8f);
+            if (System.Math.Abs(game.ElapsedSeconds - c0) > 1e-6) Fail("clock ran under the referee notice");
+            if (Shots) yield return Shot("11_judge_notice.png");
+            game.ContinueAfterNotice();
+            yield return WaitFrames(5);
+            if (game.ResignNoticeOpen || game.Paused || game.IsFinished) Fail("続行 did not resume the game");
+            game.TestJudgeNotice();
+            yield return WaitFrames(3);
+            if (game.ResignNoticeOpen) Fail("referee notice shown twice in one game");
+            // Game 2: 投了.
+            game.NewSetup(false);
+            game.StartGame();
+            yield return WaitFrames(5);
+            game.TestJudgeNotice();
+            yield return WaitFrames(5);
+            game.ResignFromNotice();
+            yield return WaitFrames(10);
+            var match = game.Session.Match;
+            if (!game.IsFinished || game.Phase != Phase.Finished || match.Winner != GameController.Computer || match.EndReason != Observation.EndReason.Resigned)
+                Fail("投了 did not end the game as a CPU win by resignation");
+            if (ModalInput.Top != "result" || !presentation.ResultOpen) Fail("result is not the frontmost modal");
+            yield return WaitFrames(3);
+            string text = playUi.LastResultText ?? "";
+            if (!text.Contains("CPUの勝ち") || !text.Contains("投了") || !text.Contains("TURN") || !text.Contains("経過")) Fail("result lacks CPUの勝ち/投了/TURN/経過: " + text);
+            if (Shots) yield return Shot("12_result_resigned.png");
+            presentation.ResultDismissed = true;
+            yield return WaitFrames(3);
+            if (ModalInput.AnyOpen) Fail("result still modal after 盤面を見る");
+            log.Add("referee notice: modal, paused, clock stopped, 続行 resumes and never re-shows; 投了 → 「" + text + "」");
+            game.NewSetup(false);
+        }
 
         private static bool ContainsRect(Rect outer, Rect inner)
         {
@@ -116,6 +166,14 @@ namespace MilitaryShogi.Game
             var boardPiece = game.PieceViews.First(v => v.IsOwn);
             float ratio = game.Graveyard.OwnViews[0].WorldBounds.size.x / boardPiece.WorldBounds.size.x;
             if (ratio < 0.78f) Fail("loss pieces smaller than 78%: " + ratio);
+            // 1.3.0: empty table between the board and each loss area, at least half a loss piece, symmetric.
+            float half = BoardLayout.Width / 2f;
+            float ownGap = -half - game.Graveyard.OwnViews.Max(v => v.WorldBounds.max.x);
+            float enemyGap = game.Graveyard.EnemyViews.Min(v => v.WorldBounds.min.x) - half;
+            float w = GraveyardView.PieceWidth;
+            if (ownGap < 0.5f * w - 0.02f || enemyGap < 0.5f * w - 0.02f) Fail("board ↔ loss area clearance below half a piece: " + ownGap + " / " + enemyGap + " (piece " + w + ")");
+            if (Mathf.Abs(ownGap - enemyGap) > 0.01f) Fail("board ↔ loss area clearance not symmetric: " + ownGap + " / " + enemyGap);
+            if (!clearanceLogged) { clearanceLogged = true; log.Add("board ↔ loss clearance: own " + (ownGap / w).ToString("0.00") + " / enemy " + (enemyGap / w).ToString("0.00") + " piece widths (loss piece " + (ratio * 100).ToString("0") + "% of a board piece)"); }
             CheckTooltipPlacement(Screen.width / UiKit.Scale, Screen.height / UiKit.Scale);
         }
 

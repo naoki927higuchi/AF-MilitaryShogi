@@ -14,10 +14,15 @@ namespace MilitaryShogi.Game
     /// </summary>
     public sealed class GameBootstrap : MonoBehaviour
     {
-        public const string Version = "1.2.2";
+        public const string Version = "1.3.0";
+
+        /// <summary>Android (or -mobileui on PC for layout checks).</summary>
+        public static bool Mobile { get; private set; }
 
         private void Awake()
         {
+            Mobile = Application.isMobilePlatform || LaunchArgs.Has("-mobileui");
+            UiKit.Mobile = Mobile;
             Application.targetFrameRate = 60;
             QualitySettings.shadowDistance = 30f;
 
@@ -76,16 +81,37 @@ namespace MilitaryShogi.Game
             // Presentation only (対戦 / 研究 / あそびかた). Start-up mode is always 対戦.
             var presentation = controller.gameObject.AddComponent<Presentation>();
             presentation.Bind(controller);
-            var play = controller.gameObject.AddComponent<PlayUi>();
-            play.Bind(controller, presentation);
-            var research = controller.gameObject.AddComponent<ResearchUi>();
-            research.Version = Version;
-            research.Bind(controller, presentation);
+            if (Mobile)
+            {
+                // Android: 対戦モード only (no research UI, no research shortcuts), touch layout for
+                // portrait and landscape. The game itself (session, CPU, rules) is the same code.
+                presentation.ResearchAvailable = false;
+                controller.TapInspect = true;
+                Screen.orientation = ScreenOrientation.AutoRotation;
+                Screen.autorotateToPortrait = true;
+                Screen.autorotateToLandscapeLeft = true;
+                Screen.autorotateToLandscapeRight = true;
+                Screen.autorotateToPortraitUpsideDown = false;
+                var mobile = controller.gameObject.AddComponent<MobileUi>();
+                mobile.Bind(controller, presentation);
+            }
+            else
+            {
+                var play = controller.gameObject.AddComponent<PlayUi>();
+                play.Bind(controller, presentation);
+                var research = controller.gameObject.AddComponent<ResearchUi>();
+                research.Version = Version;
+                research.Bind(controller, presentation);
+            }
             var help = controller.gameObject.AddComponent<HelpUi>();
             help.Bind(controller, presentation);
+            var judge = controller.gameObject.AddComponent<JudgeUi>();
+            judge.Touch = Mobile;
+            judge.Bind(controller);
 
             string probe = Argument("-audioprobe");
             if (probe != null) controller.gameObject.AddComponent<AudioProbe>().Begin(controller, probe);
+            if (LaunchArgs.Has("-remote")) controller.gameObject.AddComponent<RemoteControl>().Begin(controller);
             string modalProbe = Argument("-modalprobe");
             if (modalProbe != null) controller.gameObject.AddComponent<ModalProbe>().Begin(controller, modalProbe);
 
@@ -109,12 +135,6 @@ namespace MilitaryShogi.Game
             return true;
         }
 
-        public static string Argument(string name)
-        {
-            var args = Environment.GetCommandLineArgs();
-            for (int i = 0; i < args.Length - 1; i++)
-                if (args[i] == name) return args[i + 1];
-            return null;
-        }
+        public static string Argument(string name) { return LaunchArgs.Value(name); }
     }
 }

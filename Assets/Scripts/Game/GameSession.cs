@@ -117,6 +117,13 @@ namespace MilitaryShogi.Game
             Cpu.Observe(Match.GetView(Computer));
         }
 
+        /// <summary>The player resigns (only the player can; the CPU never resigns). CPU wins, EndReason.Resigned.</summary>
+        public void ResignPlayer()
+        {
+            Match.Resign(Human);
+            View = Match.GetView(Human);
+        }
+
         /// <summary>Apply a move and refresh the views. Returns the public record and the human's view before it.</summary>
         public ObservedMove Apply(Side side, MoveCommand command, out PlayerView before)
         {

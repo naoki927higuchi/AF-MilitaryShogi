@@ -23,6 +23,8 @@ namespace MilitaryShogi.Tests
             bool quick = args.Contains("--quick");
             if (args.Contains("--diag")) { Diagnostics.Run(); return 0; }
             if (args.Length == 2 && args[0] == "--trace") { Diagnostics.Trace(int.Parse(args[1])); return 0; }
+            // --legacy-draw: games end only by the pre-1.3.0 rules, so CPU metrics compare with 1.1.1/1.2.x.
+            if (args.Contains("--legacy-draw")) MilitaryShogi.Engine.MatchConfig.DefaultDrawWhenNoCapturers = false;
             var suites = new List<(string, Action)>
             {
                 ("Rules: army composition", RulesTests.ArmyComposition),
@@ -53,9 +55,14 @@ namespace MilitaryShogi.Tests
                 ("1.1.1 Player facts: information boundary and soundness", PlayerFactsTests.BoundaryAndSoundness),
                 ("1.2.0 Presets: five slots, names, placement round trip", PresetTests.SlotsNamesAndRoundTrip),
                 ("1.2.0 Presets: invalid data is rejected", PresetTests.RejectsInvalidData),
+                ("1.3.0 Engine: draw when neither side can capture the headquarters", EngineTests.NoCapturersDraw),
+                ("1.3.0 Engine: resignation", EngineTests.Resignation),
                 ("Games: CPU vs CPU and CPU vs random complete; beliefs stay sound", () => GameTests.FullGames(quick)),
             };
 
+            // --only TEXT: run just the suites whose name contains TEXT (development; the full run has no filter).
+            int only = Array.IndexOf(args, "--only");
+            if (only >= 0 && only + 1 < args.Length) suites = suites.Where(s => s.Item1.Contains(args[only + 1])).ToList();
             var total = Stopwatch.StartNew();
             foreach (var (name, run) in suites)
             {
