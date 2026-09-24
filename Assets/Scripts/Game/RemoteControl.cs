@@ -169,6 +169,7 @@ namespace MilitaryShogi.Game
             kv("noticeKind", game.NoticeKind);
             kv("confirmNew", mobile != null && mobile.ConfirmNewOpen);
             kv("sheetCollapsed", mobile != null && mobile.SheetCollapsed);
+            kv("setupHint", mobile != null ? mobile.SetupHint : "");
             kv("paused", game.PauseReasons);
             kv("background", presentation.InBackground);
             kv("backgroundCount", presentation.BackgroundCount);

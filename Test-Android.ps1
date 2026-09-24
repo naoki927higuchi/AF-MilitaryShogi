@@ -80,6 +80,17 @@ try {
     $s = Send-Remote 'seeds' '1001,2002,3003'
     Shot '01_portrait_setup.png'
 
+    # --- Portrait setup: placement instructions under 「初期配置」, also with the sheet folded (盤を広く表示) ---
+    $s = State
+    $hintY = (Get-Point (Spot $s 'mobile.setupHint'))[1]; $camTop = [int](($s.camera -split ',')[1])
+    Check ($s.setupHint -like '*タップ*入れ替え*' -and $hintY -lt $camTop) "portrait setup: instructions in the header above the board ($($s.setupHint))"
+    $cam0 = $s.camera
+    Invoke-Tap (Spot $s 'mobile.sheet'); Start-Sleep -Milliseconds 500; $s = State
+    Check ($s.sheetCollapsed -eq 'True' -and $s.setupHint -like '*タップ*入れ替え*') 'portrait setup: instructions stay while 盤を広く表示 folds the sheet'
+    Shot '01b_portrait_setup_folded.png'
+    Invoke-Tap (Spot $s 'mobile.sheet'); Start-Sleep -Milliseconds 500; $s = State
+    Check ($s.sheetCollapsed -eq 'False' -and $s.setupHint -ne '' -and $s.camera -eq $cam0) 'portrait setup: sheet opened again, board area unchanged'
+
     # --- Setup: tap own piece, tap another cell → swap ---
     $own = @($s.own -split ';' | ForEach-Object { $k, $v = $_ -split '@'; @{ Node = ($k -split ':')[0]; Type = ($k -split ':')[1]; At = $v } })
     $a = $own | Where-Object { $_.Type -eq 'General' } | Select-Object -First 1

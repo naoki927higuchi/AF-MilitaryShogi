@@ -41,6 +41,8 @@ namespace MilitaryShogi.Game
         public bool Portrait { get; private set; }
         public Rect SafeArea { get { return safe; } }
         public int LastDrawFrame { get; private set; } = -1;
+        /// <summary>Placement instructions drawn under the portrait 「初期配置」 title at the last repaint ("" = none), for the device test.</summary>
+        public string SetupHint { get; private set; } = "";
         public string LastResultText { get; private set; }
         public PresetPanel Presets { get { return presets; } }
         public bool ConfirmNewOpen { get { return confirmNew; } set { confirmNew = value; } }
@@ -138,7 +140,7 @@ namespace MilitaryShogi.Game
         private void DrawGui()
         {
             if (ui == null) ui = new UiKit();
-            if (Event.current.type == EventType.Repaint) LastDrawFrame = Time.frameCount;
+            if (Event.current.type == EventType.Repaint) { LastDrawFrame = Time.frameCount; SetupHint = ""; }
             scale = UiKit.Scale;
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
             game.UiRects.Clear();
@@ -194,9 +196,12 @@ namespace MilitaryShogi.Game
             var bar = Region(new Rect(safe.x, safe.y, safe.width, TopBarHeight));
             ui.Fill(new Rect(0, 0, Screen.width / scale, safe.y + TopBarHeight), new Color(0.04f, 0.03f, 0.02f, 0.9f));
             ui.Fill(new Rect(bar.x, bar.yMax - 1, bar.width, 1), new Color(0.75f, 0.55f, 0.28f, 0.6f));
-            float lh = Portrait ? 30f : 38f;
+            // Portrait setup: logo, 「初期配置」 and the placement instructions stacked in the same bar height
+            // (the board area does not change; the instructions stay while the sheet is folded).
+            bool setupHint = Portrait && game.Phase == Phase.Setup;
+            float lh = setupHint ? 27f : Portrait ? 30f : 38f;
             float lw = logo != null ? lh * logo.width / logo.height : 0f;
-            if (logo != null) GUI.DrawTexture(new Rect(bar.x + 8, bar.y + 4, lw, lh), logo, ScaleMode.ScaleToFit, true);
+            if (logo != null) GUI.DrawTexture(new Rect(bar.x + 8, bar.y + (setupHint ? 3f : 4f), lw, lh), logo, ScaleMode.ScaleToFit, true);
             string turn = game.Phase == Phase.Setup ? "初期配置" : "TURN " + (game.Ply + (game.IsFinished ? 0 : 1));
             bool mine = game.ToMove == GameController.Human;
             string who = game.Phase == Phase.Setup ? "" : game.IsFinished ? "終局" : mine ? "あなたの番" : "CPUの番";
@@ -215,6 +220,15 @@ namespace MilitaryShogi.Game
                 UiKit.Spot("replay.reveal", toggle);
                 bool on = game.PostGameReveal;
                 if (GUI.Button(toggle, on ? "敵駒開示 ON" : "敵駒開示 OFF", on ? ui.Selected : ui.Button)) game.SetPostGameReveal(!on);
+            }
+            else if (setupHint)
+            {
+                GUI.Label(new Rect(bar.x + 10, bar.y + 29, 200, 22), turn, new GUIStyle(ui.Big) { fontSize = 17 });
+                var hint = new Rect(bar.x + 10, bar.y + 50, bar.width - 20, 16);
+                string text = StatusText();
+                GUI.Label(hint, text, new GUIStyle(ui.Small) { fontSize = 12, wordWrap = false, clipping = TextClipping.Clip });
+                UiKit.Spot("mobile.setupHint", hint);
+                if (Event.current.type == EventType.Repaint) SetupHint = text;
             }
             else if (Portrait)
             {
