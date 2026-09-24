@@ -12,6 +12,9 @@ namespace MilitaryShogi.Game
 {
     public enum Phase { Setup, PlayerTurn, CpuThinking, Animating, Finished }
 
+    /// <summary>Referee notices to the player: no piece left that can capture the HQ, or a stalemate of repeated positions.</summary>
+    public enum JudgeNoticeKind { NoCapturers, Stalemate }
+
     /// <summary>
     /// Game flow for human (South) vs CPU (North): input, CPU turns, animation. All game data lives
     /// in <see cref="GameSession"/>; the human's screen is driven only by the human's PlayerView and
@@ -111,6 +114,8 @@ namespace MilitaryShogi.Game
             ResignNoticeOpen = false;
             resignNoticeShown = false;
             InspectedPieceId = -1;
+            LastIntervention = null;
+            RefereeNote = null;
             SetPause(PauseReason.Judge, false);
             if (randomizeSeeds)
             {
@@ -339,6 +344,9 @@ namespace MilitaryShogi.Game
                         if (thinking.IsFaulted) { Debug.LogException(thinking.Exception); StatusText = "CPU思考エラー: " + thinking.Exception.InnerException?.Message; thinking = null; return; }
                         var report = thinking.Result;
                         thinking = null;
+                        // Referee rule (not CPU thinking): after a stalemate intervention toward the CPU,
+                        // a move that continues that repetition is replaced by the CPU's next-best move.
+                        if (Session.ApplyRefereeToCpu(report)) ShowRefereeNote("審判：CPUは反復を続けない手を指しました");
                         Cpu.Record(report);
                         Execute(Computer, report.Chosen.Command);
                     }
@@ -483,7 +491,15 @@ namespace MilitaryShogi.Game
             // headquarters. Only the player's own pieces are looked at (no hidden information). The CPU
             // is never told anything and never resigns.
             if (Session.Match.Status == GameStatus.Playing && !resignNoticeShown && !PlayerHasCapturer)
-                yield return JudgeNotice();
+                yield return JudgeNotice(JudgeNoticeKind.NoCapturers);
+            // Stalemate referee: the same public position has come back again and again.
+            var intervention = Session.TakeIntervention();
+            if (intervention != null && Session.Match.Status == GameStatus.Playing)
+            {
+                LastIntervention = intervention;
+                if (intervention.Addresses(Computer)) ShowRefereeNote("審判：同じ局面の反復が続いています。CPUは今後この反復を続けません");
+                if (intervention.Addresses(Human)) yield return JudgeNotice(JudgeNoticeKind.Stalemate);
+            }
             if (Session.Match.Status == GameStatus.Finished)
             {
                 EnterFinished();
@@ -634,12 +650,29 @@ namespace MilitaryShogi.Game
         /// <summary>Whether the player still has 大将〜少佐 on the board (own pieces only).</summary>
         public bool PlayerHasCapturer { get { return View != null && View.Own.Any(p => p.Alive && PieceCatalog.CanCaptureHeadquarters(p.Type)); } }
 
-        private IEnumerator JudgeNotice()
+        /// <summary>Which referee notice is open.</summary>
+        public JudgeNoticeKind NoticeKind { get; private set; }
+
+        /// <summary>Last stalemate intervention (for tests and the research monitor); public data only.</summary>
+        public RefereeIntervention LastIntervention { get; private set; }
+
+        /// <summary>A short, non-blocking referee message (e.g. when the CPU is told to break a repetition).</summary>
+        public string RefereeNote { get; private set; }
+        public float RefereeNoteUntil { get; private set; }
+
+        private void ShowRefereeNote(string text)
         {
-            resignNoticeShown = true;
+            RefereeNote = text;
+            RefereeNoteUntil = Time.unscaledTime + 5f;
+        }
+
+        private IEnumerator JudgeNotice(JudgeNoticeKind kind)
+        {
+            if (kind == JudgeNoticeKind.NoCapturers) resignNoticeShown = true;
+            NoticeKind = kind;
             ResignNoticeOpen = true;
             SetPause(PauseReason.Judge, true);     // game and clock stop while the notice is open
-            StatusText = "審判：総司令部を占領できる駒がなくなりました";
+            StatusText = kind == JudgeNoticeKind.NoCapturers ? "審判：総司令部を占領できる駒がなくなりました" : "審判：同じ局面が繰り返されています";
             while (ResignNoticeOpen) yield return null;
             SetPause(PauseReason.Judge, false);
         }
@@ -655,17 +688,17 @@ namespace MilitaryShogi.Game
         /// Test hook (auto-test): show the referee notice on the player's turn through the same routine
         /// as a real game, then finish the game if the player resigned.
         /// </summary>
-        public void TestJudgeNotice()
+        public void TestJudgeNotice(JudgeNoticeKind kind = JudgeNoticeKind.NoCapturers)
         {
-            if (Phase != Phase.PlayerTurn || resignNoticeShown) return;
-            StartCoroutine(TestJudgeNoticeRoutine());
+            if (Phase != Phase.PlayerTurn || (kind == JudgeNoticeKind.NoCapturers && resignNoticeShown)) return;
+            StartCoroutine(TestJudgeNoticeRoutine(kind));
         }
 
-        private IEnumerator TestJudgeNoticeRoutine()
+        private IEnumerator TestJudgeNoticeRoutine(JudgeNoticeKind kind)
         {
             var phase = Phase;
             Phase = Phase.Animating;
-            yield return JudgeNotice();
+            yield return JudgeNotice(kind);
             if (Session.Match.Status == GameStatus.Finished) EnterFinished();
             else { Phase = phase; StatusText = "あなたの手番です"; }
         }

@@ -54,6 +54,7 @@
 - Modal UI（設定・あそびかた・確認ダイアログ等）は `ModalInput` に登録し、最前面のModalだけが入力を持つ。背後のIMGUIは `ModalInput.Background` の中で描き、盤面などUpdateで読む入力は `ModalInput.PointerBlocked` を確認する。背後ボタンを個別に無効化しない。Modal外クリックは閉じずに消費し、閉じたクリックを背後へ渡さない。Modal（入力）と一時停止（時間）は別概念として扱う（1.2.2〜）。
 - Android版（1.3.0〜）は対戦モードのみ。研究モード・思考モニター・Seed操作・CPU真値表示・研究用の履歴とショートカットを載せない。ゲーム本体はPCと共通コードとし、Android専用なのはPresentation（`MobileUi`）だけ。画面回転・バックグラウンドはPresentation／一時停止だけで扱い、GameSession・CPU・乱数・経過時間を作り直さない。
 - 双方の占領可能駒（大将〜少佐）が0になったら引き分け。プレイヤーだけ0になったら審判が一局に一度だけ投了を確認する。CPUは投了しない。CPU側だけ0になったことをプレイヤーへ通知しない（1.3.0〜）。
+- 膠着の審判介入（1.4.0〜）は Observation の `RepetitionReferee` だけで判定し、公開局面（駒番号・位置・手番）と公開の着手記録以外を使わない（駒の正体・占領可否・CPUの推定や評価値・完全情報の勝敗を使わない。テストで検査）。CPUへの介入は決定後の選択（`RefereeChoice`）で反復に戻る手を次善手に替えるだけで、評価関数・既存の反復抑制に手を入れない。
 - IMGUIの描画は `UiGuard` で包み、例外で入力状態（hotControl・keyboardControl・GUI.enabled・matrix）が残らないようにする。あそびかたと一時停止・timeScaleの整合は `Presentation` のウォッチドッグで保つ。見えないオーバーレイが入力を塞ぐ状態を作らない（EXE自動検証のストレステストで検査）。
 
 ## 構成管理

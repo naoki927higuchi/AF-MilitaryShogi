@@ -41,7 +41,9 @@ namespace MilitaryShogi.Game
             mobile = GetComponent<MobileUi>();
             dir = Path.Combine(UserData.Directory, "remote");
             Directory.CreateDirectory(dir);
-            try { File.Delete(Path.Combine(dir, "cmd.txt")); } catch (Exception) { }
+            // The app creates the command file itself (Android 17 does not let the app read a file the
+            // adb shell created); the host only overwrites its contents.
+            try { File.WriteAllText(Path.Combine(dir, "cmd.txt"), ""); } catch (Exception) { }
             WriteState(0);
         }
 
@@ -74,6 +76,7 @@ namespace MilitaryShogi.Game
                     }
                     break;
                 case "judge": game.TestJudgeNotice(); break;
+                case "stalemate": game.TestJudgeNotice(JudgeNoticeKind.Stalemate); break;
                 case "start": game.StartGame(); break;
                 case "orient":
                     Screen.orientation = arg == "portrait" ? ScreenOrientation.Portrait : arg == "landscape" ? ScreenOrientation.LandscapeLeft : ScreenOrientation.AutoRotation;
@@ -163,6 +166,7 @@ namespace MilitaryShogi.Game
             kv("helpOpen", presentation.HelpOpen);
             kv("resultOpen", presentation.ResultOpen);
             kv("judgeOpen", game.ResignNoticeOpen);
+            kv("noticeKind", game.NoticeKind);
             kv("confirmNew", mobile != null && mobile.ConfirmNewOpen);
             kv("sheetCollapsed", mobile != null && mobile.SheetCollapsed);
             kv("paused", game.PauseReasons);

@@ -51,7 +51,11 @@ $log.Add("AF-MilitaryShogi $version Android device test on $model (Android $andr
 $rotAuto = (& $adb shell settings get system accelerometer_rotation).Trim()
 $rotUser = (& $adb shell settings get system user_rotation).Trim()
 try {
+    # Stop the app before updating it: on Android 17 updating a running app and relaunching at once can
+    # crash Unity's start-up (system "package updated" screen in the same task).
+    & $adb shell am force-stop $pkg
     & $adb install -r $Apk | Out-Host
+    Start-Sleep 3
     if ($LASTEXITCODE -ne 0) { throw 'adb install failed' }
     & $adb shell settings put system accelerometer_rotation 0
     & $adb shell settings put system user_rotation 0

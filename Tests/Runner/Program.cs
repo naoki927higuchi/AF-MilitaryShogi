@@ -57,6 +57,11 @@ namespace MilitaryShogi.Tests
                 ("1.2.0 Presets: invalid data is rejected", PresetTests.RejectsInvalidData),
                 ("1.3.0 Engine: draw when neither side can capture the headquarters", EngineTests.NoCapturersDraw),
                 ("1.3.0 Engine: resignation", EngineTests.Resignation),
+                ("1.4.0 Referee: no intervention without a 5-fold public position", RefereeTests.NoInterventionWithoutRepetition),
+                ("1.4.0 Referee: intervenes on the 5th occurrence, once per repetition", RefereeTests.InterventionOnFifthOccurrenceOnce),
+                ("1.4.0 Referee: hidden kinds do not change when or toward whom", RefereeTests.HiddenKindsDoNotMatter),
+                ("1.4.0 Referee: the threatened side is addressed", RefereeTests.DefenderIsTheThreatenedSide),
+                ("1.4.0 Referee: CPU plays its next-best move, evaluation untouched", RefereeTests.CpuPlaysNextBestAfterIntervention),
                 ("Games: CPU vs CPU and CPU vs random complete; beliefs stay sound", () => GameTests.FullGames(quick)),
             };
 

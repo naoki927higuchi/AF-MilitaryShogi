@@ -27,8 +27,28 @@ namespace MilitaryShogi.Game
 
         private void OnGUI()
         {
-            if (game == null || !game.ResignNoticeOpen) return;
+            if (game == null) return;
+            if (!game.ResignNoticeOpen)
+            {
+                if (game.RefereeNote != null && Time.unscaledTime < game.RefereeNoteUntil) UiGuard.Run("JudgeUi", DrawNote, () => { });
+                return;
+            }
             UiGuard.Run("JudgeUi", DrawGui, () => game.ContinueAfterNotice());
+        }
+
+        private void DrawNote()
+        {
+            if (ui == null) ui = new UiKit();
+            GUI.depth = -80;
+            float scale = UiKit.Scale;
+            float vw = Screen.width / scale;
+            GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
+            var style = new GUIStyle(ui.Label) { alignment = TextAnchor.MiddleCenter, wordWrap = true };
+            float w = Mathf.Min(560, vw - 24), h = style.CalcHeight(new GUIContent(game.RefereeNote), w - 24) + 16;
+            var r = new Rect((vw - w) / 2, 84, w, h);
+            ui.Fill(r, new Color(0.08f, 0.06f, 0.04f, 0.92f));
+            ui.Fill(new Rect(r.x, r.y, r.width, 2), new Color(0.75f, 0.55f, 0.28f, 0.9f));
+            GUI.Label(new Rect(r.x + 12, r.y + 8, w - 24, h - 16), game.RefereeNote, style);
         }
 
         private void DrawGui()
@@ -42,8 +62,12 @@ namespace MilitaryShogi.Game
             ui.Fill(new Rect(0, 0, vw, vh), new Color(0, 0, 0, 0.45f));
             // Heights are measured, so the text wraps cleanly on narrow phone screens too.
             float w = Mathf.Min(520, vw - 24), button = Touch ? 52 : 44, inner = w - 40;
-            const string title = "総司令部を占領できる駒がなくなりました";
-            const string body = "大将〜少佐がすべて失われました。総司令部占領による勝利はできません。\n続行すれば、敵の動かせる駒をなくすなど他の勝ち筋で最後まで戦えます。";
+            bool stalemate = game.NoticeKind == JudgeNoticeKind.Stalemate;
+            // The stalemate notice says nothing about who stands better or what the pieces are.
+            string title = stalemate ? "同じ局面が繰り返されています" : "総司令部を占領できる駒がなくなりました";
+            string body = stalemate
+                ? "膠着状態になっています。\n投了するか、続行するかを判断してください。\n続行した場合、手の選び方に制限はありません。"
+                : "大将〜少佐がすべて失われました。総司令部占領による勝利はできません。\n続行すれば、敵の動かせる駒をなくすなど他の勝ち筋で最後まで戦えます。";
             var header = new GUIStyle(ui.Header) { alignment = TextAnchor.UpperCenter, wordWrap = true };
             var small = new GUIStyle(ui.Small) { alignment = TextAnchor.UpperCenter, wordWrap = true };
             var center = new GUIStyle(ui.Label) { alignment = TextAnchor.UpperCenter };

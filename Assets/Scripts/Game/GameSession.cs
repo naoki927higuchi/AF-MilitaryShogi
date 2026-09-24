@@ -115,6 +115,31 @@ namespace MilitaryShogi.Game
             Match = new Match(PlayerFormation.Clone(), CpuFormation);
             View = Match.GetView(Human);
             Cpu.Observe(Match.GetView(Computer));
+            Referee = new RepetitionReferee();
+            Referee.Start(View);
+        }
+
+        /// <summary>Stalemate referee (public positions only; see RepetitionReferee).</summary>
+        public RepetitionReferee Referee { get; private set; }
+        private RefereeIntervention pendingIntervention;
+
+        /// <summary>The intervention caused by the last ply, once (null if none).</summary>
+        public RefereeIntervention TakeIntervention()
+        {
+            var i = pendingIntervention;
+            pendingIntervention = null;
+            return i;
+        }
+
+        /// <summary>
+        /// After a referee intervention toward the CPU: if the CPU's choice would continue that
+        /// repetition, play its best-scored move that does not. The CPU's evaluation is not changed.
+        /// </summary>
+        public bool ApplyRefereeToCpu(DecisionReport report)
+        {
+            if (Referee == null || !Referee.IsRestricted(Computer)) return false;
+            var cpuView = CpuView();
+            return RefereeChoice.Apply(report, c => Referee.ContinuesRepetition(Computer, cpuView, c.Command, cpuView.Owners[c.Command.To] == (sbyte)Human));
         }
 
         /// <summary>The player resigns (only the player can; the CPU never resigns). CPU wins, EndReason.Resigned.</summary>
@@ -131,6 +156,7 @@ namespace MilitaryShogi.Game
             var record = Match.Apply(side, command);
             View = Match.GetView(Human);
             Cpu.Observe(Match.GetView(Computer));
+            pendingIntervention = Referee != null ? Referee.Record(View) : null;
             if (record.Combat != null) Combats.Add(ToCombatRecord(record, before));
             return record;
         }

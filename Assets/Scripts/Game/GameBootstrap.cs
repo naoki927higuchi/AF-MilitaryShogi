@@ -14,7 +14,7 @@ namespace MilitaryShogi.Game
     /// </summary>
     public sealed class GameBootstrap : MonoBehaviour
     {
-        public const string Version = "1.3.0";
+        public const string Version = "1.4.0";
 
         /// <summary>Android (or -mobileui on PC for layout checks).</summary>
         public static bool Mobile { get; private set; }
