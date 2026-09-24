@@ -15,7 +15,7 @@
 | バージョン設定元 | `VERSION.txt`（3桁）。`GameBootstrap.Version` と一致しないとビルドが失敗する。ビルド時に `PlayerSettings.bundleVersion` へ反映 |
 | Windowsリリース出力 | `bin/Release-<Version>/AF-MilitaryShogi.exe`（`Build-Windows.ps1`） |
 | Androidリリース出力 | `bin/Android/Release-<Version>/AF-MilitaryShogi-<Version>.apk`（`Build-Android.ps1`、1.3.0〜）。ARM64/IL2CPP Release、デバッグ不可、シンボルなし。SHA256・マニフェスト・署名の検証結果を併置。Git管理外。一般配布しない |
-| Android実機確認の端末 | 開発中・受入中の動作確認は Pixel 7 Pro（USBデバッグ）で行う。リリース候補（RC）相当以上の成果物だけを Galaxy S26 Ultra に入れて確認する。Pixelで問題が起きた場合は例外として扱う（2026-09-24〜）。`Test-Android.ps1` は `ANDROID_SERIAL` で端末を指定する。adbはAndroid SDKのplatform-tools（Unity同梱版と混在させない） |
+| Android実機確認の端末 | 開発・試験の動作確認は Pixel 7 Pro（USBデバッグ）で行う。Galaxy S26 Ultra はユーザーの実戦プレイ用端末で、転送・インストールはユーザーが明示的に指示した場合だけ行う（上書きインストールでデータを残す。S26で自動試験はしない）（2026-09-24〜）。`Test-Android.ps1` は `ANDROID_SERIAL` で端末を指定する。adbはAndroid SDKのplatform-tools（Unity同梱版と混在させない） |
 | Android署名 | 専用のローカルRelease鍵。鍵とDPAPI暗号化パスワードは `.local/android-signing/`（Git管理外）。同一アプリの更新は同じ鍵で行う |
 | Windows配布ZIP | `Package-Windows.ps1` で `Builds/Package/` に作成・検証（100MB未満、デバッグ成果物なし、同梱README）→ 公開準備で `Prepare-Release.ps1` が `Distribution/` へZIP・SHA256・JSONを配置 |
 | 検証方法 | `Run-Tests.ps1`（ルール・エンジン・CPU・情報境界・強さ/戦い方・あそびかた・プリセット・全局の自動テスト、.NET 9 SDK）、`Build-Windows.ps1`（アプリアイコン設定の確認を含む）、`Run-AutoTest.ps1`（ビルドしたEXEで自動対局を2回：表示モード切替あり/なしの指紋比較、再起動後のユーザーデータ保持、敵駒表面の描画検査、UI状態遷移ストレステスト、損失表示・レイアウト・効果音同期・経過時間・あそびかた一時停止・ロゴ・アイコンの検査、スクリーンショット）。人の手による実プレイ確認・聴感確認は別途 |
