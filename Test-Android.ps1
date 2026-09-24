@@ -144,6 +144,25 @@ try {
     }
     Check $moved 'tap own piece → tap target moves it'
     $s = WaitFor { param($x) $x.phase -eq 'PlayerTurn' } 40
+
+    # --- Tap-safe selection (1.4.0): missed taps on the board keep the selection, no move is made ---
+    $sq = @{}; foreach ($e in ($s.squares -split ';')) { $k, $v = $e -split '@'; $sq[[int]$k] = $v }
+    $occupied = @(($s.own -split ';') | ForEach-Object { [int](($_ -split '@')[0] -split ':')[0] }) + @(($s.enemy -split ';') | ForEach-Object { [int](($_ -split '@')[0] -split ':')[1] })
+    foreach ($p in ($s.own -split ';')) { $k, $at = $p -split '@'; Invoke-Tap $at; $sel = State; if ($sel.targets) { break } }
+    $selNode = $sel.selected; $tg = @(($sel.targets -split ';') | ForEach-Object { [int](($_ -split '@')[0]) })
+    $miss = @($sq.Keys | Where-Object { $_ -lt 64 -and $occupied -notcontains $_ -and $tg -notcontains $_ } | Sort-Object { [math]::Abs([int]$_ - [int]$selNode) })[0]
+    $ply = $sel.ply; $fp = $sel.fingerprint
+    Invoke-Tap $sq[$miss]; $s = State
+    Check ($s.selected -eq $selNode -and $s.ply -eq $ply -and $s.fingerprint -eq $fp) "tap on a non-target square ($miss) keeps the selection, no move"
+    Invoke-Tap $sq[[int]$selNode]; $s = State
+    Check ($s.selected -eq $selNode) 'tap on the selected piece itself keeps it'
+    $other = @($s.own -split ';' | Where-Object { [int](($_ -split '@')[0] -split ':')[0] -ne [int]$selNode })[0]
+    Invoke-Tap (($other -split '@')[1]); $s = State
+    Check ($s.selected -eq (($other -split '@')[0] -split ':')[0]) 'tap on another own piece switches the selection'
+    $cam = $s.camera -split ','
+    Invoke-TapXY ([int]$cam[0] + [int]([int]$cam[2] / 2)) ([int]$cam[1] + 12); $s = State
+    Check ($s.selected -eq '-1' -and $s.ply -eq $ply) 'tap off the board deselects'
+    Shot '04b_portrait_selection.png'
     Shot '04_portrait_play.png'
 
     # --- Enemy observation by tap ---

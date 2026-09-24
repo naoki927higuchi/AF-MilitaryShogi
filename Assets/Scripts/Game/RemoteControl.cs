@@ -201,6 +201,7 @@ namespace MilitaryShogi.Game
             var cam = game.MainCamera.pixelRect;
             kv("camera", Mathf.RoundToInt(cam.x) + "," + Mathf.RoundToInt(Screen.height - cam.yMax) + "," + Mathf.RoundToInt(cam.width) + "," + Mathf.RoundToInt(cam.height));
             foreach (var spot in UiKit.Spots) kv("spot." + spot.Key, P(spot.Value));
+            kv("squares", string.Join(";", Enumerable.Range(0, BoardGraph.NodeCount).Select(n => n + "@" + NodeScreen(n))));
             if (game.View != null && game.Session.Started)
             {
                 kv("own", string.Join(";", game.View.Own.Where(p => p.Alive).Select(p => p.Node + ":" + p.Type + "@" + NodeScreen(p.Node))));

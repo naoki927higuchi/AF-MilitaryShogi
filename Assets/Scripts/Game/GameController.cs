@@ -331,7 +331,7 @@ namespace MilitaryShogi.Game
                     if (pointer && Input.GetMouseButtonDown(0) && !MouseOverUi()) SetupClick(HoverNode);
                     break;
                 case Phase.PlayerTurn:
-                    if (pointer && Input.GetMouseButtonDown(0) && !MouseOverUi()) PlayClick(HoverNode);
+                    if (pointer && Input.GetMouseButtonDown(0) && !MouseOverUi()) PlayClick(HoverNode, HoverNode >= 0 || OnBoardAtScreen(Input.mousePosition));
                     else if (pointer && Input.GetMouseButtonDown(1)) Select(-1);
                     break;
                 case Phase.Animating:
@@ -384,11 +384,30 @@ namespace MilitaryShogi.Game
         }
 
         /// <summary>A left click on a node, exactly as the mouse handler performs it (used by the auto-test).</summary>
+        /// <summary>A click on a node, or (node −1) off the board, exactly as the mouse/touch handler performs it (auto-test).</summary>
         public void ClickNode(int node)
         {
             if (Paused) return;
             if (Phase == Phase.Setup) SetupClick(node);
-            else if (Phase == Phase.PlayerTurn) PlayClick(node);
+            else if (Phase == Phase.PlayerTurn) PlayClick(node, node >= 0);
+        }
+
+        /// <summary>A click on the board surface that is not on any square (band, margins), as the handler performs it.</summary>
+        public void ClickBoardBetweenSquares()
+        {
+            if (!Paused && Phase == Phase.PlayerTurn) PlayClick(-1, true);
+        }
+
+        /// <summary>Whether a screen point lies on the board surface (squares, band or margins).</summary>
+        public bool OnBoardAtScreen(Vector3 screen)
+        {
+            if (MainCamera == null || !MainCamera.pixelRect.Contains(screen)) return false;
+            var ray = MainCamera.ScreenPointToRay(screen);
+            var plane = new Plane(Vector3.up, Vector3.zero);
+            float d;
+            if (!plane.Raycast(ray, out d)) return false;
+            var hit = ray.GetPoint(d);
+            return Mathf.Abs(hit.x) <= BoardLayout.Width / 2f && Mathf.Abs(hit.z) <= BoardLayout.Depth / 2f;
         }
 
         public PieceView PieceAtNode(int node)
@@ -417,29 +436,41 @@ namespace MilitaryShogi.Game
         /// <summary>Target nodes of the selected piece (player's turn).</summary>
         public List<int> PlayTargets() { return targets.Select(t => t.To).ToList(); }
 
-        private void PlayClick(int node)
+        /// <summary>
+        /// A click/tap on the board during the player's turn (1.4.0: tap-safe selection).
+        /// With an own piece selected:
+        ///  - legal target (empty or enemy) → move / attack;
+        ///  - enemy piece that is not a target → deselect (Android: show its observations);
+        ///  - another own piece → select it; the selected piece itself → keep the selection;
+        ///  - any other square or the board surface between squares → nothing (selection kept);
+        ///  - off the board → deselect.
+        /// A tap is never "corrected" to a nearby legal target: a wrong move can decide the game.
+        /// </summary>
+        private void PlayClick(int node, bool onBoard)
         {
-            if (TapInspect)
-            {
-                // Enemy piece that is not an attack target of the selected piece: inspect it.
-                var enemy = node >= 0 ? View.Enemy.FirstOrDefault(e => e.Alive && e.Node == node) : null;
-                bool attack = SelectedNode >= 0 && targets.Any(t => t.To == node);
-                if (enemy != null && !attack) { Select(-1); InspectedPieceId = enemy.Id; return; }
-                InspectedPieceId = -1;
-            }
-            if (node < 0) { Select(-1); return; }
+            var enemy = node >= 0 ? View.Enemy.FirstOrDefault(e => e.Alive && e.Node == node) : null;
+            var mine = node >= 0 ? View.Own.FirstOrDefault(p => p.Node == node) : null;
             if (SelectedNode >= 0)
             {
-                var hit = targets.FirstOrDefault(t => t.To == node);
+                var hit = node >= 0 ? targets.FirstOrDefault(t => t.To == node) : default(MoveTarget);
                 if (hit.Path != null)
                 {
+                    InspectedPieceId = -1;
                     var own = View.Own.First(p => p.Node == SelectedNode);
                     Execute(Human, new MoveCommand(own.Id, node));
                     return;
                 }
+                if (enemy != null) { Select(-1); if (TapInspect) InspectedPieceId = enemy.Id; return; }
+                if (mine != null) { InspectedPieceId = -1; if (node != SelectedNode) Select(node); return; }
+                if (onBoard) return;                         // missed square on the board: keep the selection
+                Select(-1);                                  // off the board
+                InspectedPieceId = -1;
+                return;
             }
-            var mine = View.Own.FirstOrDefault(p => p.Node == node);
-            Select(mine != null ? node : -1);
+            // Nothing selected.
+            if (mine != null) { InspectedPieceId = -1; Select(node); return; }
+            if (enemy != null) { if (TapInspect) InspectedPieceId = enemy.Id; return; }
+            InspectedPieceId = -1;                           // empty square / off the board: close observations
         }
 
         private void Select(int node)

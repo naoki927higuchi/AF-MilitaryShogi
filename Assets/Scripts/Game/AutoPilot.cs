@@ -43,6 +43,47 @@ namespace MilitaryShogi.Game
         public const string PersistedPresetName = "自動検証の配置";
         public const int PersistedVolume = 37;
         private string finalFingerprint, mainSummary, mainCpu;
+        private bool selectionDone;
+
+        /// <summary>
+        /// 1.4.0 selection rules (tap-safe): with an own piece selected, a non-target square or the board
+        /// between squares keeps the selection, the piece itself keeps it, another own piece switches, an
+        /// enemy that is not a target deselects, off the board deselects. No move is made (state unchanged).
+        /// </summary>
+        private void CheckTapSelection()
+        {
+            selectionDone = true;
+            string before = game.Session.Fingerprint();
+            var view = game.View;
+            var movable = view.Own.Where(p => p.Alive && MoveRules.Generate(p.Type, GameController.Human, p.Node, view.Owners).Count > 0).ToList();
+            var a = movable[0];
+            game.ClickNode(a.Node);
+            var targets = game.PlayTargets();
+            int empty = Enumerable.Range(0, BoardGraph.NodeCount).First(n => view.Owners[n] == MoveRules.Empty && !targets.Contains(n));
+            var other = view.Own.First(p => p.Alive && p.Node != a.Node);
+            var enemy = view.Enemy.FirstOrDefault(e => e.Alive && !targets.Contains(e.Node));
+            game.ClickNode(empty);
+            bool keptOnSquare = game.SelectedNode == a.Node;
+            game.ClickBoardBetweenSquares();
+            bool keptBetween = game.SelectedNode == a.Node;
+            game.ClickNode(a.Node);
+            bool keptSelf = game.SelectedNode == a.Node && game.PlayTargets().SequenceEqual(targets);
+            game.ClickNode(other.Node);
+            bool switched = game.SelectedNode == other.Node;
+            bool enemyDeselects = true;
+            if (enemy != null) { game.ClickNode(enemy.Node); enemyDeselects = game.SelectedNode == -1; }
+            game.ClickNode(a.Node);
+            game.ClickNode(-1);
+            bool offBoard = game.SelectedNode == -1;
+            if (!keptOnSquare) Fail("tap on a non-target square dropped the selection");
+            if (!keptBetween) Fail("tap on the board between squares dropped the selection");
+            if (!keptSelf) Fail("tap on the selected piece itself changed the selection");
+            if (!switched) Fail("tap on another own piece did not switch the selection");
+            if (!enemyDeselects) Fail("tap on an enemy that is not a target did not deselect");
+            if (!offBoard) Fail("tap off the board did not deselect");
+            if (game.Session.Fingerprint() != before || game.Phase != Phase.PlayerTurn) Fail("selection taps changed the game state");
+            log.Add("tap-safe selection: non-target square / between squares / itself keep, other own piece switches, enemy non-target and off-board deselect; no move made");
+        }
         private bool mainFinished;
         private int mainCombats;
 
@@ -113,6 +154,7 @@ namespace MilitaryShogi.Game
                 if (!helpDone && game.Ply >= 6 && game.Phase == Phase.CpuThinking) yield return CheckHelpPauses();
                 if (!modeRoundTripDone && game.Ply >= 10 && game.Phase == Phase.PlayerTurn) yield return CheckModeRoundTrip();
                 if (!clockDone && game.Ply >= 12 && game.Phase == Phase.PlayerTurn) yield return CheckClock();
+                if (!selectionDone && game.Ply >= 8 && game.Phase == Phase.PlayerTurn) CheckTapSelection();
                 if (!stressDone && game.Ply >= 14 && game.Phase == Phase.PlayerTurn) { stressDone = true; var b = SnapshotSettings(); yield return StressTest("in-game", 160, false); RestoreSettings(b); }
                 if (!researchShotsDone && game.Ply >= 20 && game.Phase == Phase.PlayerTurn) yield return ResearchShots();
                 if (game.Phase == Phase.PlayerTurn && !game.Paused)

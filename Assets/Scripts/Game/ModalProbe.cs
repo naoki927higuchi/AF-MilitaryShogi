@@ -213,6 +213,22 @@ namespace MilitaryShogi.Game
             yield return Click(BoardPoint(ownPiece));
             Check(game.SelectedNode == ownPiece, "after closing: the next board click selects normally (selected " + game.SelectedNode + ", hover " + game.HoverNode
                 + ", phase " + game.Phase + ", blocked " + ModalInput.PointerBlocked + ", overUi " + game.IsOverUi(BoardPoint(ownPiece)) + ")");
+            // ---- 1.4.0: tap-safe selection with real clicks ----
+            {
+                var view = game.View;
+                var sel = view.Own.First(p => p.Alive && MoveRules.Generate(p.Type, GameController.Human, p.Node, view.Owners).Count > 0);
+                yield return Click(BoardPoint(sel.Node));
+                var tg = game.PlayTargets();
+                int miss = Enumerable.Range(0, BoardGraph.CellCount).First(n => view.Owners[n] == MoveRules.Empty && !tg.Contains(n));
+                string st = State();
+                yield return Click(BoardPoint(miss));
+                Check(game.SelectedNode == sel.Node && State() == st, "real click on a non-target square keeps the selection (no move)");
+                yield return Click(BoardPoint(sel.Node));
+                Check(game.SelectedNode == sel.Node, "real click on the selected piece keeps it");
+                yield return Click(blank);
+                Check(game.SelectedNode == -1, "real click off the board deselects");
+            }
+
             // ---- 1.3.0: referee notice and result are modals too ----
             string beforeNotice = State();
             game.TestJudgeNotice();
