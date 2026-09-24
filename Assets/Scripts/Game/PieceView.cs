@@ -161,6 +161,7 @@ namespace MilitaryShogi.Game
         /// <summary>
         /// 研究モード「CPU駒の正体を表示」 only: show a CPU piece's true face on the board. Presentation
         /// calls this only in research mode with the switch on and reverts with <see cref="ShowBack"/>.
+        /// 1.5.0: also after the game has ended, while 「敵駒開示」 is on (棋譜再現).
         /// </summary>
         public void ShowResearchFace(PieceType type)
         {

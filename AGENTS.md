@@ -38,7 +38,9 @@
 
 - 対局ルールは README.md「採用ルール」の1種類に固定する。ローカルルール切り替えは実装しない。ルールの曖昧点はユーザーに確認し、決定をREADME.mdに記録する。
 - CPU（`MilitaryShogi.Cpu`）は `MilitaryShogi.Rules` と `MilitaryShogi.Observation` だけを参照する。`MilitaryShogi.Engine` への参照・リフレクション等で敵駒の真の種類へ到達する経路を作らない。テスト（Boundary系）で検査する。
-- 敵駒の表面テクスチャを敵駒の表示オブジェクトへ渡すコードを書かない。唯一の例外は研究モードの「CPU駒の正体を表示」ON時の盤上駒（1.2.0〜、`GameSession.ResearchTrueKind` 経由）。対戦モードでは常に不可、損失表示の敵駒は常に裏面。真値をCPU・PlayerKnownFactsへ渡さない。戦闘演出は駒種に依存させない。撃破した敵駒の正体も公開しない。
+- 敵駒の表面テクスチャを敵駒の表示オブジェクトへ渡すコードを書かない。例外は次の2つだけ（どちらも `GameSession.ResearchTrueKind` 経由）：(1) 研究モードの「CPU駒の正体を表示」ON時の盤上駒（1.2.0〜、損失表示は裏面のまま）、(2) 終局後の棋譜再現で「敵駒開示」ON時の盤上駒と敵軍の損失（1.5.0〜）。対局中は対戦モードで常に不可。真値をCPU・PlayerKnownFactsへ渡さない。戦闘演出は駒種に依存させない。
+- 終局後の敵駒開示（1.5.0〜、ユーザー指示による情報隠蔽の例外）：対局中は一切開示しない。終局直後も自動では開示せず裏向きのまま。棋譜再現中に「敵駒開示」をONにした時だけ真の駒種を表示する（盤上の生存駒と敵軍の損失。損失の並びは撃破順のまま並べ替えない）。開示スイッチは毎局OFFで始まり、次の対局へ引き継がず、保存しない（新規対局でOFF）。`GameController.PostGameReveal` は `Phase.Finished` でしかONにできない。
+- 棋譜再現（1.5.0〜）は終局後の閲覧専用。TURN 0＝初期配置、1手（移動・戦闘・除去まで）＝1ステップ。表示局面は確定した PlayerView（初期位置＋公開の着手記録）から `Observation.GameReplay.ViewAt` で再構成し、別の状態を持たない。各TURNの判明情報は `PlayerKnownFacts` をそのTURNまでの記録だけで作り直す（未来の情報を過去TURNへ漏らさない）。再開・分岐・保存・ファイル入出力・自動再生・戦闘ログ表示は作らない。再現中は駒を動かせない（観測情報の表示のみ）。
 - Seedは Player Formation Seed / CPU Formation Seed / CPU Decision Seed を分離し、乱数は `DeterministicRandom` を使う（`System.Random` をゲームロジックに使わない）。
 - 表示モード（対戦／研究）とあそびかたはPresentation層の状態とし、切替で `GameSession`（盤面・手番・CPU Knowledge・Seed・履歴）や乱数状態を変更・再生成しない（1.1.0〜、EXE自動検証で指紋比較）。起動時は対戦モード。
 - 対戦モードにはSeed・CPU評価値・推定確率などの研究情報を表示しない。1.1.1の受入修正では、敵駒ホバーにEnemy番号・位置・移動・戦闘の客観的事実と公開観測から一意に判明した駒種を表示する。研究機能は研究モードに残す。

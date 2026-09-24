@@ -136,6 +136,7 @@ namespace MilitaryShogi.Game
             if (game.ElapsedSeconds != 0) Fail("clock ran before 対局開始");
             game.StartGame();
             if (game.ElapsedSeconds > 0.25) Fail("clock did not start at 対局開始");
+            RecordLive();
             yield return CheckLayouts();
             yield return CheckTooltipDrawing();
             humanDriver = new CpuPlayer(GameController.Human, game.Settings.PlayerFormationSeed, 777);
@@ -188,7 +189,9 @@ namespace MilitaryShogi.Game
             mainSummary = "result = " + game.ResultText() + " after " + game.Ply + " plies, clock " + UiKit.FormatClock(game.ElapsedSeconds);
             mainCpu = "CPU decisions = " + game.Cpu.Reports.Count + ", avg think ms = " + (game.Cpu.Reports.Count > 0 ? game.Cpu.Reports.Average(r => r.ThinkMilliseconds).ToString("0.0") : "-");
             mainCombats = game.Combats.Count;
+            yield return CheckReplay();
             yield return CheckJudgeAndResign();
+            if (game.PostGameReveal) Fail("敵駒開示 carried over to the next game");
             Finish();
         }
 
@@ -196,6 +199,7 @@ namespace MilitaryShogi.Game
         {
             log.Add("TURN " + r.Ply + " " + r.Mover + " #" + r.PieceId + " " + BoardGraph.Describe(r.From) + "->" + BoardGraph.Describe(r.To)
                 + (r.Combat != null ? " combat " + r.Combat.Outcome : ""));
+            RecordLive();
             CheckGraveyard();
             if (toggleModes)
             {
@@ -502,14 +506,18 @@ namespace MilitaryShogi.Game
             if (game == null) return;
             framesChecked++;
             var back = GameAssets.Back;
-            // Board: faces only in 研究 with the reveal switch on. Loss areas: never.
-            bool revealAllowed = presentation.EnemyRevealActive;
+            // Board: faces only in 研究 with the reveal switch on, or after the game with 「敵駒開示」.
+            // Loss areas: only after the game with 「敵駒開示」.
+            bool postGame = game.PostGameReveal;
+            if (postGame && game.Phase != Phase.Finished) { violations++; log.Add("VIOLATION: 敵駒開示 active in " + game.Phase); }
+            bool revealAllowed = presentation.EnemyRevealActive || (postGame && game.Phase == Phase.Finished);
             foreach (var v in game.PieceViews)
             {
                 if (v.IsOwn || revealAllowed) continue;
                 CheckBack(v, back, "board");
             }
-            foreach (var v in game.Graveyard.EnemyViews) CheckBack(v, back, "loss area");
+            if (!(postGame && game.Phase == Phase.Finished))
+                foreach (var v in game.Graveyard.EnemyViews) CheckBack(v, back, "loss area");
         }
 
         private void CheckBack(PieceView v, Texture back, string where)
@@ -524,6 +532,110 @@ namespace MilitaryShogi.Game
                     if (violations < 20) log.Add("VIOLATION: enemy piece #" + v.Number + " (" + where + ") uses texture " + (tex != null ? tex.name : "null") + " in " + presentation.Mode);
                 }
             }
+        }
+
+        // ------------------------------------------------------------------
+        // 1.5.0 棋譜再現 / 敵駒開示 (after the game)
+        // ------------------------------------------------------------------
+
+        // Live snapshots per TURN while the game was played: piece positions and the player's knowledge.
+        private readonly List<string> livePositions = new List<string>();
+        private readonly List<string> liveFacts = new List<string>();
+
+        private static string Positions(PlayerView v)
+        {
+            return string.Join(";", v.Own.Select(p => p.Id + "@" + p.Node)) + "|" + string.Join(";", v.Enemy.Select(e => e.Id + "@" + e.Node));
+        }
+
+        private static string FactsOf(PlayerKnownFacts f, PlayerView v)
+        {
+            return string.Join(";", v.Enemy.Select(e => e.Id + "=" + string.Join(",", f.Candidates(e.Id))));
+        }
+
+        private void RecordLive()
+        {
+            int t = game.View.History.Count;
+            while (livePositions.Count <= t) { livePositions.Add(null); liveFacts.Add(null); }
+            livePositions[t] = Positions(game.View);
+            liveFacts[t] = FactsOf(game.KnownFacts, game.View);
+        }
+
+        private IEnumerator CheckReplay()
+        {
+            string fp = game.Session.Fingerprint();
+            int n = game.View.History.Count;
+            if (game.ReplayLength != n || game.ReplayTurn != n) Fail("after the game the last TURN is not shown: " + game.ReplayTurn + "/" + game.ReplayLength);
+            if (game.PostGameReveal) Fail("敵駒開示 is on right after the game");
+            if (game.PieceViews.Any(v => !v.IsOwn && v.gameObject.activeSelf && !v.ShowsBack)) Fail("CPU pieces revealed right after the game");
+            presentation.ResultDismissed = true;
+            yield return WaitFrames(2);
+            int mismatches = 0, tooltipChecks = 0;
+            for (int t = n; t >= 0; t--)
+            {
+                game.ReplayGo(t);
+                var shown = game.DisplayView;
+                var expect = GameReplay.ViewAt(game.View, t);
+                string where = "TURN " + t + ": ";
+                if (game.ReplayTurn != t || shown.History.Count != t) { Fail(where + "not shown"); mismatches++; continue; }
+                if (t < livePositions.Count && livePositions[t] != null && Positions(shown) != livePositions[t]) { Fail(where + "positions differ from the live game"); mismatches++; }
+                if (t < liveFacts.Count && liveFacts[t] != null && FactsOf(game.DisplayFacts, shown) != liveFacts[t]) { Fail(where + "knowledge differs from what was known then"); mismatches++; }
+                foreach (var (id, node) in expect.Own.Select(p => (p.Id, p.Node)).Concat(expect.Enemy.Select(e => (e.Id, e.Node))))
+                {
+                    var v = game.PieceViews.First(x => x.Id == id);
+                    bool ok = node < 0 ? !v.gameObject.activeSelf : v.gameObject.activeSelf && v.Node == node && (v.transform.localPosition - BoardLayout.Node(node)).sqrMagnitude < 1e-6f && Mathf.Abs(v.transform.localScale.x - 1f) < 1e-4f;
+                    if (!ok) { Fail(where + "piece " + id + " not at " + node); mismatches++; break; }
+                }
+                var g = game.Graveyard;
+                if (g.OwnViews.Count != shown.Own.Count(p => !p.Alive) || g.EnemyViews.Count != shown.Enemy.Count(e => !e.Alive)) { Fail(where + "loss areas do not match"); mismatches++; }
+                if (!g.EnemyIdsShown.SequenceEqual(GameSession.EnemyDeathOrder(shown))) { Fail(where + "enemy losses not in removal order"); mismatches++; }
+                // Observations of an enemy piece at this TURN: nothing from later TURNs.
+                var enemy = game.PieceViews.FirstOrDefault(v => !v.IsOwn && v.gameObject.activeSelf);
+                if (enemy != null && t % 7 == 0)
+                {
+                    tooltipChecks++;
+                    string text = game.Tooltip.TextFor(enemy);
+                    var turns = System.Text.RegularExpressions.Regex.Matches(text, @"TURN (\d+)").Cast<System.Text.RegularExpressions.Match>().Select(m => int.Parse(m.Groups[1].Value));
+                    if (turns.Any(k => k > t) || !text.Contains(game.DisplayFacts.Identity(enemy.Id))) { Fail(where + "observations show later information: " + text.Split('\n')[0]); mismatches++; }
+                }
+            }
+            // Clamping (the ◀ / ▶ buttons are disabled at the ends).
+            game.ReplayGo(-1);
+            if (game.ReplayTurn != 0) Fail("TURN went below 0");
+            if (Shots) yield return Shot("11_replay_turn0.png");
+            // Nothing can be moved while reviewing.
+            var own = game.DisplayView.Own.First(p => p.Alive);
+            game.ClickNode(own.Node);
+            if (game.SelectedNode != -1 || game.Phase != Phase.Finished) Fail("a piece could be selected while reviewing");
+            // 敵駒開示 at TURN 0: the initial CPU formation.
+            game.SetPostGameReveal(true);
+            yield return WaitFrames(2);
+            foreach (var v in game.PieceViews.Where(v => !v.IsOwn && v.gameObject.activeSelf))
+            {
+                var kind = game.Session.ResearchTrueKind(v.Id);
+                if (!kind.HasValue || v.Materials[0].mainTexture != GameAssets.Face(kind.Value)) { Fail("敵駒開示 TURN 0: piece " + v.Id + " not shown with its kind"); break; }
+            }
+            var initial = game.DisplayView.Enemy.Select(e => e.Node + ":" + game.Session.ResearchTrueKind(e.Id)).OrderBy(s => s).ToList();
+            var formation = game.Session.CpuFormation.Pieces.Select(kv => kv.Key + ":" + kv.Value).OrderBy(s => s).ToList();
+            if (!initial.SequenceEqual(formation)) Fail("敵駒開示 TURN 0 is not the initial CPU formation");
+            if (Shots) yield return Shot("12_replay_turn0_reveal.png");
+            game.ReplayGo(n);
+            yield return WaitFrames(2);
+            var order = game.Graveyard.EnemyIdsShown.ToList();
+            if (!order.SequenceEqual(GameSession.EnemyDeathOrder(game.View))) Fail("敵駒開示 changed the order of the enemy losses");
+            for (int i = 0; i < game.Graveyard.EnemyViews.Count; i++)
+            {
+                var v = game.Graveyard.EnemyViews[i];
+                var kind = game.Session.ResearchTrueKind(order[i]);
+                if (!kind.HasValue || v.Materials[0].mainTexture != GameAssets.Face(kind.Value)) { Fail("敵駒開示: enemy loss " + order[i] + " not shown with its kind"); break; }
+                if ((v.transform.localPosition - GraveyardView.Slot(i, true)).sqrMagnitude > 1e-6f) Fail("敵駒開示 moved an enemy loss");
+            }
+            if (Shots) yield return Shot("13_replay_final_reveal.png");
+            game.SetPostGameReveal(false);
+            yield return WaitFrames(2);
+            if (game.PieceViews.Any(v => !v.IsOwn && v.gameObject.activeSelf && !v.ShowsBack) || game.Graveyard.EnemyViews.Any(v => !v.ShowsBack)) Fail("敵駒開示 OFF did not turn the CPU pieces face down");
+            game.SetPostGameReveal(true);    // left on: the next game must start with it off
+            if (game.Session.Fingerprint() != fp) Fail("棋譜再現 changed the game");
+            log.Add("棋譜再現: TURN 0.." + n + " match the live positions, losses (removal order) and knowledge; " + tooltipChecks + " observation checks; 敵駒開示 TURN 0 = initial CPU formation, losses keep their order; mismatches = " + mismatches);
         }
 
         private void CheckPicking()

@@ -11,7 +11,8 @@ namespace MilitaryShogi.Game
     /// Left: 自軍の損失 – faces shown, sorted by kind (大将…少尉, then special pieces), same kinds adjacent.
     /// Right: 敵軍の損失 – all show the common back, in the order they were removed. The slot of an
     /// enemy piece is a function of its death index only; no kind is ever passed to this class for
-    /// enemy pieces, so the layout cannot reveal anything but the count.
+    /// enemy pieces, so the layout cannot reveal anything but the count. Exception (1.5.0): after the
+    /// game has ended, 「敵駒開示」 may turn the faces up via ShowEnemyFaces.
     /// Both sides use the same grid: 3 columns x up to 11 rows, filled from the top-left to the right,
     /// and the same physical placement: lying on the table surface (not floating at board height),
     /// same orientation, scale and shadow settings. Only the face shown and the ordering differ.
@@ -94,14 +95,34 @@ namespace MilitaryShogi.Game
                     own.Add(v);
                 }
             }
-            // Enemy losses: appended in removal order, always the back texture.
+            // Enemy losses: appended in removal order, always the back texture. Going back in 棋譜再現
+            // removes the pieces lost after the displayed TURN (removal order is a prefix).
             var order = GameSession.EnemyDeathOrder(view);
+            while (enemy.Count > order.Count)
+            {
+                Destroy(enemy[enemy.Count - 1].gameObject);
+                enemy.RemoveAt(enemy.Count - 1);
+                enemyIds.RemoveAt(enemyIds.Count - 1);
+            }
             for (int i = enemy.Count; i < order.Count; i++)
             {
                 var v = PieceView.CreateEnemy(transform, order[i], view.EnemyById(order[i]).Number, true);   // same orientation as the own side
                 Lay(v, Slot(i, true));
                 enemy.Add(v);
                 enemyIds.Add(order[i]);
+            }
+        }
+
+        /// <summary>
+        /// 1.5.0 「敵駒開示」 after the game only: faces of the enemy losses from <paramref name="truth"/>
+        /// (null = back). The slots do not move; the removal order is kept.
+        /// </summary>
+        public void ShowEnemyFaces(System.Func<int, PieceType?> truth)
+        {
+            for (int i = 0; i < enemy.Count; i++)
+            {
+                var kind = truth != null ? truth(enemyIds[i]) : null;
+                if (kind.HasValue) enemy[i].ShowResearchFace(kind.Value); else enemy[i].ShowBack();
             }
         }
 

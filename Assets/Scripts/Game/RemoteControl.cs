@@ -196,6 +196,12 @@ namespace MilitaryShogi.Game
             kv("graves3d", game.Graveyard.gameObject.activeSelf);
             kv("lossOwn", game.Graveyard.OwnViews.Count);
             kv("lossEnemy", game.Graveyard.EnemyViews.Count);
+            kv("replayTurn", game.ReplayTurn);
+            kv("replayLength", game.ReplayLength);
+            kv("reveal", game.PostGameReveal);
+            kv("facesUp", game.PieceViews.Count(v => !v.IsOwn && v.gameObject.activeSelf && !v.ShowsBack));
+            kv("lossFacesUp", game.Graveyard.EnemyViews.Count(v => !v.ShowsBack));
+            kv("lossEnemyIds", string.Join(",", game.Graveyard.EnemyIdsShown));
             kv("uiErrors", UiGuard.ErrorCount);
             kv("font", GameAssets.UiFont != null ? string.Join("/", GameAssets.UiFont.fontNames ?? new string[0]).Replace('\n', ' ') : "none");
             var cam = game.MainCamera.pixelRect;
@@ -204,8 +210,8 @@ namespace MilitaryShogi.Game
             kv("squares", string.Join(";", Enumerable.Range(0, BoardGraph.NodeCount).Select(n => n + "@" + NodeScreen(n))));
             if (game.View != null && game.Session.Started)
             {
-                kv("own", string.Join(";", game.View.Own.Where(p => p.Alive).Select(p => p.Node + ":" + p.Type + "@" + NodeScreen(p.Node))));
-                kv("enemy", string.Join(";", game.View.Enemy.Where(p => p.Alive).Select(p => p.Id + ":" + p.Node + "@" + NodeScreen(p.Node))));
+                kv("own", string.Join(";", game.DisplayView.Own.Where(p => p.Alive).Select(p => p.Node + ":" + p.Type + "@" + NodeScreen(p.Node))));
+                kv("enemy", string.Join(";", game.DisplayView.Enemy.Where(p => p.Alive).Select(p => p.Id + ":" + p.Node + "@" + NodeScreen(p.Node))));
                 if (game.SelectedNode >= 0)
                     kv("targets", string.Join(";", game.PlayTargets().Select(t => t + "@" + NodeScreen(t))));
             }

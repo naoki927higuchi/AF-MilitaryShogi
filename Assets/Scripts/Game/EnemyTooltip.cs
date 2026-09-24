@@ -68,10 +68,12 @@ namespace MilitaryShogi.Game
         public string TextFor(PieceView piece, bool revealTruth = false)
         {
             var truth = revealTruth ? game.Session.ResearchTrueKind(piece.Id) : null;
-            string identity = truth.HasValue ? PieceCatalog.JapaneseName(truth.Value) + "（研究：真値表示）" : game.KnownFacts.Identity(piece.Id);
+            // After the game (棋譜再現) the view and knowledge are those of the displayed TURN.
+            var view = game.DisplayView;
+            string identity = truth.HasValue ? PieceCatalog.JapaneseName(truth.Value) + "（研究：真値表示）" : game.DisplayFacts.Identity(piece.Id);
             var lines = new List<string> { "<b>Enemy #" + piece.Number + "</b>　" + identity + "　位置 " + BoardGraph.Describe(piece.Node) };
             int moves = 0;
-            foreach (var m in game.View.History)
+            foreach (var m in view.History)
             {
                 if (m.PieceId == piece.Id)
                 {
@@ -94,7 +96,7 @@ namespace MilitaryShogi.Game
         public void Draw(bool modalOpen, bool revealTruth, bool enabled)
         {
             LastText = null;
-            if (!enabled || modalOpen || game.View == null || game.KnownFacts == null || game.Phase == Phase.Setup || game.Phase == Phase.Animating || game.Phase == Phase.Finished) return;
+            if (!enabled || modalOpen || game.View == null || game.KnownFacts == null || game.Phase == Phase.Setup || game.Phase == Phase.Animating) return;
             // Test preview, else Android's tapped piece, else the piece under the mouse (PC).
             bool pinned = PreviewPieceId >= 0 || game.TapInspect;
             int pinnedId = PreviewPieceId >= 0 ? PreviewPieceId : game.InspectedPieceId;

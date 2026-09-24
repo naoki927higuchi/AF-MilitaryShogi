@@ -253,6 +253,16 @@ namespace MilitaryShogi.Game
             game.NewSetup(false);
             game.StartGame();
             yield return Frames(10);
+            // Two plies (player + CPU) so the finished game has TURNs to replay (1.5.0 棋譜再現).
+            {
+                var driver = new MilitaryShogi.Cpu.CpuPlayer(GameController.Human, game.Settings.PlayerFormationSeed, 777);
+                var cmd = driver.Decide(game.View).Chosen.Command;
+                game.ClickNode(game.View.OwnById(cmd.PieceId).Node);
+                game.ClickNode(cmd.To);
+                float until = Time.realtimeSinceStartup + 30f;
+                while ((game.Phase != Phase.PlayerTurn || game.Ply < 2) && !game.IsFinished && Time.realtimeSinceStartup < until) yield return null;
+                Check(game.Phase == Phase.PlayerTurn && game.Ply == 2, "two plies played before the referee notice");
+            }
             game.TestJudgeNotice();
             yield return Frames(6);
             yield return Click(Spot("judge.resign"));
@@ -267,6 +277,33 @@ namespace MilitaryShogi.Game
             yield return Click(Spot("play.settings"));
             Check(presentation.SettingsOpen, "after the result: header works again");
             yield return Click(Spot("settings.close"));
+
+            // ---- 1.5.0: 棋譜再現 / 敵駒開示 with real clicks ----
+            {
+                int n = game.ReplayLength;
+                Check(n > 0 && game.ReplayTurn == n && !game.PostGameReveal, "棋譜再現: the last TURN is shown after the game, 敵駒開示 OFF (" + game.ReplayTurn + "/" + n + ")");
+                string fp = game.Session.Fingerprint();
+                yield return Click(Spot("replay.next"));
+                Check(game.ReplayTurn == n, "▶ at the last TURN does nothing (disabled)");
+                yield return Click(Spot("replay.prev"));
+                Check(game.ReplayTurn == n - 1, "◀ goes back one TURN");
+                yield return Click(Spot("replay.first"));
+                Check(game.ReplayTurn == 0, "◀◀ goes to TURN 0");
+                yield return Click(Spot("replay.prev"));
+                Check(game.ReplayTurn == 0, "◀ at TURN 0 does nothing (disabled)");
+                yield return Click(Spot("replay.next"));
+                Check(game.ReplayTurn == 1, "▶ goes forward one TURN");
+                var own = game.DisplayView.Own.First(p => p.Alive);
+                yield return Click(BoardPoint(own.Node));
+                Check(game.SelectedNode == -1 && game.Phase == Phase.Finished, "a click on an own piece while reviewing selects nothing");
+                yield return Click(Spot("replay.reveal"));
+                Check(game.PostGameReveal && game.PieceViews.Any(v => !v.IsOwn && v.gameObject.activeSelf && !v.ShowsBack), "「敵駒開示」 ON shows the CPU pieces");
+                yield return Click(Spot("replay.last"));
+                Check(game.ReplayTurn == n, "▶▶ goes to the last TURN");
+                yield return Click(Spot("replay.reveal"));
+                Check(!game.PostGameReveal && game.PieceViews.All(v => v.IsOwn || !v.gameObject.activeSelf || v.ShowsBack) && game.Graveyard.EnemyViews.All(v => v.ShowsBack), "「敵駒開示」 OFF turns them face down again");
+                Check(game.Session.Fingerprint() == fp, "棋譜再現 does not change the game");
+            }
 
             Check(UiGuard.ErrorCount == 0, "no UI exceptions (" + UiGuard.ErrorCount + ")");
 

@@ -61,7 +61,8 @@ namespace MilitaryShogi.Game
         // Layout (every frame, before Presentation.LateUpdate fits the camera)
         // ------------------------------------------------------------------
 
-        private float TopBarHeight { get { return Portrait ? 66f : 54f; } }
+        /// <summary>Portrait after the game: one more row for the 棋譜再現 controls (finger-sized buttons).</summary>
+        private float TopBarHeight { get { return Portrait ? (game != null && game.Phase == Phase.Finished ? 96f : 66f) : 54f; } }
         private float BottomBarHeight { get { return Portrait ? 84f : 26f; } }
         private const int StripColumns = 12, StripRows = 3;
         private float StripIcon { get { return (safe.width - 16f) / StripColumns; } }
@@ -202,7 +203,20 @@ namespace MilitaryShogi.Game
             Color dot = game.IsFinished ? Color.gray : mine ? new Color(0.45f, 0.9f, 0.5f) : new Color(0.95f, 0.55f, 0.35f);
             string clock = game.Session.Started ? "経過 " + UiKit.FormatClock(game.ElapsedSeconds) : "";
             var big = new GUIStyle(ui.Big) { fontSize = 20 };
-            if (Portrait)
+            bool review = game.Phase == Phase.Finished;
+            if (Portrait && review)
+            {
+                // 棋譜再現: 「敵駒開示」 beside the logo, ◀◀ ◀ TURN n / N ▶ ▶▶ on the second row.
+                const float tw = 128f;
+                GUI.Label(new Rect(bar.x + 14 + lw, bar.y + 8, bar.width - lw - tw - 30, 24), clock, ui.Clock);
+                var row = new Rect(bar.x + 8, bar.y + 42, bar.width - 16, 48);
+                ReplayBar.Draw(ui, game, new Rect(row.x, row.y, row.width, row.height), 0f, 18);
+                var toggle = new Rect(bar.xMax - tw - 8, bar.y + 4, tw, 34);
+                UiKit.Spot("replay.reveal", toggle);
+                bool on = game.PostGameReveal;
+                if (GUI.Button(toggle, on ? "敵駒開示 ON" : "敵駒開示 OFF", on ? ui.Selected : ui.Button)) game.SetPostGameReveal(!on);
+            }
+            else if (Portrait)
             {
                 GUI.Label(new Rect(bar.xMax - 130, bar.y + 6, 122, 24), clock, new GUIStyle(ui.Clock) { alignment = TextAnchor.MiddleRight });
                 float y = bar.y + 36;
@@ -212,6 +226,14 @@ namespace MilitaryShogi.Game
                     ui.Fill(new Rect(bar.x + 150, y + 8, 11, 11), dot);
                     GUI.Label(new Rect(bar.x + 166, y, 180, 26), who, big);
                 }
+            }
+            else if (review)
+            {
+                // Landscape: the controls take the place of TURN / 手番 / 経過; the header buttons get narrower.
+                float x = bar.x + 16 + lw;
+                float bw = Mathf.Min(3 * 96f + 16f, bar.width * 0.34f);
+                ReplayBar.Draw(ui, game, new Rect(x, bar.y + 4, bar.xMax - bw - 14 - x, TopBarHeight - 8), 112f, 17);
+                HeaderButtons(new Rect(bar.xMax - bw - 6, bar.y + 4, bw, TopBarHeight - 8));
             }
             else
             {
@@ -260,7 +282,12 @@ namespace MilitaryShogi.Game
             float top = safe.y + TopBarHeight;
             float bottom = safe.yMax - BottomBarHeight - StripHeight;
             var g = game.Graveyard;
-            DrawStrip(new Rect(safe.x, top, safe.width, StripHeight), "敵軍の損失", g.EnemyViews.Count, i => GameAssets.Back);
+            // Backs in removal order; faces only with 「敵駒開示」 after the game (order unchanged).
+            DrawStrip(new Rect(safe.x, top, safe.width, StripHeight), "敵軍の損失", g.EnemyViews.Count, i =>
+            {
+                var kind = game.PostGameReveal ? game.Session.ResearchTrueKind(g.EnemyIdsShown[i]) : null;
+                return kind.HasValue ? GameAssets.Face(kind.Value) : GameAssets.Back;
+            });
             DrawStrip(new Rect(safe.x, bottom, safe.width, StripHeight), "自軍の損失", g.OwnViews.Count, i => GameAssets.Face(game.View.OwnById(g.OwnViews[i].Id).Type));
         }
 

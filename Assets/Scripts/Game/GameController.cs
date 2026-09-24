@@ -111,6 +111,7 @@ namespace MilitaryShogi.Game
             StopAllCoroutines();
             thinking = null;
             KnownFacts = null;
+            ResetReplay();
             ResignNoticeOpen = false;
             resignNoticeShown = false;
             InspectedPieceId = -1;
@@ -187,8 +188,74 @@ namespace MilitaryShogi.Game
                 if (v.IsOwn) continue;
                 PieceType? kind = null;
                 if (revealEnemies) kind = Phase == Phase.Setup ? Session.ResearchTrueKindAtSetupNode(kv.Key) : Session.ResearchTrueKind(v.Id);
+                else if (PostGameReveal) kind = Session.ResearchTrueKind(v.Id);
                 if (kind.HasValue) v.ShowResearchFace(kind.Value); else v.ShowBack();
             }
+            // The loss areas show kinds only with the post-game reveal (never in play or with the research switch).
+            if (Graveyard != null && Phase == Phase.Finished) Graveyard.ShowEnemyFaces(PostGameReveal ? (Func<int, PieceType?>)Session.ResearchTrueKind : null);
+        }
+
+        // ------------------------------------------------------------------
+        // 棋譜再現 and 敵駒開示 (1.5.0, after the game has ended only)
+        // ------------------------------------------------------------------
+
+        private PlayerView replayView;
+        private PlayerKnownFacts replayFacts;
+
+        /// <summary>Displayed TURN while reviewing a finished game (0 = initial placement), or -1 before the end.</summary>
+        public int ReplayTurn { get; private set; } = -1;
+        /// <summary>Last TURN of the finished game (number of plies), 0 before the end.</summary>
+        public int ReplayLength { get { return Phase == Phase.Finished && View != null ? GameReplay.Length(View) : 0; } }
+        /// <summary>The position shown on the board: the replayed TURN after the game, else the live view.</summary>
+        public PlayerView DisplayView { get { return replayView ?? View; } }
+        /// <summary>What the player knew at the displayed TURN (never anything learned later).</summary>
+        public PlayerKnownFacts DisplayFacts { get { return replayFacts ?? KnownFacts; } }
+        /// <summary>
+        /// 「敵駒開示」: true kinds of the CPU pieces on the board and in the loss area. Only after the game
+        /// has ended and only while switched on; off at the start of every game, never saved.
+        /// </summary>
+        public bool PostGameReveal { get; private set; }
+
+        public void SetPostGameReveal(bool on)
+        {
+            if (Phase != Phase.Finished) on = false;
+            if (on == PostGameReveal) return;
+            PostGameReveal = on;
+            ApplyEnemyFaces();
+        }
+
+        private void ResetReplay()
+        {
+            replayView = null;
+            replayFacts = null;
+            ReplayTurn = -1;
+            PostGameReveal = false;
+        }
+
+        /// <summary>Shows the finished game at TURN <paramref name="turn"/> (clamped). View only: nothing is played.</summary>
+        public void ReplayGo(int turn)
+        {
+            if (Phase != Phase.Finished || View == null) return;
+            int n = GameReplay.Length(View);
+            turn = Mathf.Clamp(turn, 0, n);
+            ReplayTurn = turn;
+            replayView = GameReplay.ViewAt(View, turn);
+            replayFacts = turn == n ? KnownFacts : new PlayerKnownFacts(replayView);
+            SelectedNode = -1;
+            targets.Clear();
+            Board.ClearHighlights();
+            foreach (var p in replayView.Own) Show(pieces[p.Id], p.Node);
+            foreach (var e in replayView.Enemy) Show(pieces[e.Id], e.Node);
+            if (Graveyard != null) Graveyard.Sync(replayView);
+            ShowLastMove();
+            if (InspectedPieceId >= 0 && !replayView.EnemyById(InspectedPieceId).Alive) InspectedPieceId = -1;
+            ApplyEnemyFaces();
+        }
+
+        private static void Show(PieceView v, int node)
+        {
+            if (node >= 0) v.PlaceAt(node);
+            else if (v.gameObject.activeSelf) v.gameObject.SetActive(false);
         }
 
         /// <summary>おまかせ配置 from the player formation seed.</summary>
@@ -334,6 +401,10 @@ namespace MilitaryShogi.Game
                     if (pointer && Input.GetMouseButtonDown(0) && !MouseOverUi()) PlayClick(HoverNode, HoverNode >= 0 || OnBoardAtScreen(Input.mousePosition));
                     else if (pointer && Input.GetMouseButtonDown(1)) Select(-1);
                     break;
+                case Phase.Finished:
+                    // 棋譜再現: observations of the tapped enemy piece (Android); no piece can be moved.
+                    if (TapInspect && pointer && Input.GetMouseButtonDown(0) && !MouseOverUi()) Inspect(HoverNode);
+                    break;
                 case Phase.Animating:
                     if (TapInspect && pointer && Input.GetMouseButtonDown(0) && !MouseOverUi()) Inspect(HoverNode);
                     break;
@@ -390,6 +461,7 @@ namespace MilitaryShogi.Game
             if (Paused) return;
             if (Phase == Phase.Setup) SetupClick(node);
             else if (Phase == Phase.PlayerTurn) PlayClick(node, node >= 0);
+            else if (Phase == Phase.Finished) Inspect(node);
         }
 
         /// <summary>A click on the board surface that is not on any square (band, margins), as the handler performs it.</summary>
@@ -427,7 +499,8 @@ namespace MilitaryShogi.Game
 
         private void Inspect(int node)
         {
-            var enemy = node >= 0 && View != null ? View.Enemy.FirstOrDefault(e => e.Alive && e.Node == node) : null;
+            var shown = DisplayView;
+            var enemy = node >= 0 && shown != null ? shown.Enemy.FirstOrDefault(e => e.Alive && e.Node == node) : null;
             InspectedPieceId = enemy != null ? enemy.Id : -1;
         }
 
@@ -492,8 +565,9 @@ namespace MilitaryShogi.Game
 
         private void ShowLastMove()
         {
-            if (View == null || View.History.Count == 0) return;
-            var last = View.History[View.History.Count - 1];
+            var shown = DisplayView;
+            if (shown == null || shown.History.Count == 0) return;
+            var last = shown.History[shown.History.Count - 1];
             Board.Highlight(last.From, HighlightKind.LastMove);
             Board.Highlight(last.To, HighlightKind.LastMove);
         }
@@ -713,6 +787,10 @@ namespace MilitaryShogi.Game
             if (Audio != null) Audio.Play(Sfx.End);
             Phase = Phase.Finished;
             StatusText = ResultText();
+            // 棋譜再現 starts at the last TURN; the CPU pieces stay face down until 「敵駒開示」 is switched on.
+            ResetReplay();
+            InspectedPieceId = -1;
+            ReplayGo(GameReplay.Length(View));
         }
 
         /// <summary>

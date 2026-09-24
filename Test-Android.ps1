@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param([string]$Apk, [string]$UnityEditor, [string]$OutDir)
 # Device test of the Android Release APK (lightweight, automatable part of the Android acceptance).
 # Installs the APK on the connected device (adb), starts it with the -remote harness and drives the
@@ -235,6 +235,8 @@ try {
     Check ($s.modalTop -eq 'confirmNew') '新規対局 asks for confirmation during a game'
     Invoke-Tap $s['spot.mobile.confirm.new']; $s = WaitFor { param($x) $x.phase -eq 'Setup' } 10
     Invoke-Tap $s['spot.mobile.start']; $s = WaitFor { param($x) $x.phase -eq 'PlayerTurn' } 20
+    # A few plies first, so the finished game has TURNs to replay (1.5.0 棋譜再現).
+    for ($i = 0; $i -lt 4; $i++) { $null = Send-Remote 'automove'; $s = WaitFor { param($x) $x.phase -eq 'PlayerTurn' } 60 }
     $s = Send-Remote 'judge'; $s = WaitFor { param($x) $x.judgeOpen -eq 'True' } 10
     Invoke-Tap $s['spot.judge.resign']; $s = WaitFor { param($x) $x.resultOpen -eq 'True' } 10
     Check ($s.resultReason -eq 'Resigned' -and $s.result -like 'CPUの勝ち*投了*') "投了 → result: $($s.result)"
@@ -245,8 +247,46 @@ try {
     Invoke-Tap $s['spot.mobile.result.board']; $s = State
     Check ($s.resultOpen -eq 'False' -and $s.modalTop -eq 'none') '盤面を見る closes the result'
 
+    # --- 棋譜再現 / 敵駒開示 (1.5.0) with real taps ---
+    $n = [int]$s.replayLength; $fp = $s.fingerprint
+    Check ($n -eq [int]$s.ply -and $n -gt 0 -and [int]$s.replayTurn -eq $n -and $s.reveal -eq 'False' -and $s.facesUp -eq '0') "after the game: TURN $($s.replayTurn) / $n shown, CPU pieces face down"
+    Shot '11b_portrait_replay_last.png'
+    $lastPos = $s.own + '|' + $s.enemy
+    Invoke-Tap (Spot $s 'replay.next'); $s = State
+    Check ([int]$s.replayTurn -eq $n) '▶ at the last TURN does nothing'
+    Invoke-Tap (Spot $s 'replay.prev'); $s = State
+    Check ([int]$s.replayTurn -eq $n - 1 -and ($s.own + '|' + $s.enemy) -ne $lastPos) '◀ goes back one TURN'
+    Invoke-Tap (Spot $s 'replay.first'); $s = State
+    Check ([int]$s.replayTurn -eq 0 -and [int]$s.lossOwn -eq 0 -and [int]$s.lossEnemy -eq 0) '◀◀ → TURN 0: initial placement, no losses'
+    Invoke-Tap (Spot $s 'replay.prev'); $s = State
+    Check ([int]$s.replayTurn -eq 0) '◀ at TURN 0 does nothing'
+    $e0 = (($s.enemy -split ';')[0] -split '@')
+    Invoke-Tap $e0[1]; $s = State
+    Check ($s.inspected -eq (($e0[0] -split ':')[0]) -and $s.tooltip -like '*正体不明*' -and $s.fingerprint -eq $fp) "tap on an enemy at TURN 0 shows what was known then: $($s.tooltip)"
+    $o0 = (($s.own -split ';')[0] -split '@')
+    Invoke-Tap $o0[1]; $s = State
+    Check ($s.selected -eq '-1' -and $s.phase -eq 'Finished') 'tap on an own piece while reviewing selects nothing'
+    Invoke-Tap (Spot $s 'replay.reveal'); $s = State
+    Check ($s.reveal -eq 'True' -and $s.facesUp -eq '31') '敵駒開示 ON at TURN 0: the whole initial CPU formation face up'
+    Shot '11c_portrait_replay_turn0_reveal.png'
+    Invoke-Tap (Spot $s 'replay.last'); $s = State
+    Check ([int]$s.replayTurn -eq $n -and [int]$s.lossFacesUp -eq [int]$s.lossEnemy) '▶▶ → last TURN; enemy losses face up'
+    Shot '11d_portrait_replay_last_reveal.png'
+    $null = Send-Remote 'orient' 'landscape'; Start-Sleep 2; $s = WaitFor { param($x) $x.portrait -eq 'False' } 10
+    Shot '11e_landscape_replay_reveal.png'
+    Check (@('replay.first', 'replay.prev', 'replay.next', 'replay.last', 'replay.reveal', 'mobile.help', 'mobile.settings', 'mobile.new' | Where-Object { -not (InSafe $s (Spot $s $_)) }).Count -eq 0) 'landscape: replay controls and header buttons inside the safe area'
+    Invoke-Tap (Spot $s 'replay.prev'); $s = State
+    Check ([int]$s.replayTurn -eq $n - 1) 'landscape: ◀ goes back one TURN'
+    Invoke-Tap (Spot $s 'replay.reveal'); $s = State
+    Check ($s.reveal -eq 'False' -and $s.facesUp -eq '0' -and $s.lossFacesUp -eq '0') '敵駒開示 OFF: face down again'
+    $null = Send-Remote 'orient' 'portrait'; Start-Sleep 2; $s = WaitFor { param($x) $x.portrait -eq 'True' } 10
+    Check ($s.fingerprint -eq $fp -and $s.phase -eq 'Finished') '棋譜再現 does not change the game'
+    Invoke-Tap (Spot $s 'replay.reveal'); $s = State   # left ON: the next game must start with it OFF
+
     # --- Determinism with rotation: same seeds as the PC emulation, rotate every other ply ---
     $s = Send-Remote 'seeds' '1001,2002,3003'
+    $s = State
+    Check ($s.reveal -eq 'False' -and $s.replayTurn -eq '-1' -and $s.facesUp -eq '0') 'a new game starts with 敵駒開示 OFF (not carried over)'
     $s = State; Invoke-Tap $s['spot.mobile.start']; $s = WaitFor { param($x) $x.phase -eq 'PlayerTurn' } 20
     for ($i = 0; $i -lt 14; $i++) {
         $null = Send-Remote 'automove'

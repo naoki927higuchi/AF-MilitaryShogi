@@ -62,6 +62,7 @@ namespace MilitaryShogi.Tests
                 ("1.4.0 Referee: hidden kinds do not change when or toward whom", RefereeTests.HiddenKindsDoNotMatter),
                 ("1.4.0 Referee: the threatened side is addressed", RefereeTests.DefenderIsTheThreatenedSide),
                 ("1.4.0 Referee: CPU plays its next-best move, evaluation untouched", RefereeTests.CpuPlaysNextBestAfterIntervention),
+                ("1.5.0 Replay: every TURN equals the live view and knowledge", ReplayTests.ReplayMatchesLiveViews),
                 ("Games: CPU vs CPU and CPU vs random complete; beliefs stay sound", () => GameTests.FullGames(quick)),
             };
 

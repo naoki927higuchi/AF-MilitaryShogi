@@ -58,6 +58,14 @@ namespace MilitaryShogi.Game
                 else if (top == "confirmNew") confirmNew = false;
                 else if (top == null) presets.Saving = false;
             }
+            // 棋譜再現 keys (after the game, no dialog open): ← → one TURN, Home / End first / last TURN.
+            if (top == null && game.Phase == Phase.Finished)
+            {
+                if (Input.GetKeyDown(KeyCode.LeftArrow)) game.ReplayGo(game.ReplayTurn - 1);
+                else if (Input.GetKeyDown(KeyCode.RightArrow)) game.ReplayGo(game.ReplayTurn + 1);
+                else if (Input.GetKeyDown(KeyCode.Home)) game.ReplayGo(0);
+                else if (Input.GetKeyDown(KeyCode.End)) game.ReplayGo(game.ReplayLength);
+            }
         }
 
         private void OnGUI()
@@ -116,8 +124,18 @@ namespace MilitaryShogi.Game
                 LogoScreenRect = new Rect(r.x * scale, r.y * scale, r.width * scale, r.height * scale);
             }
             float x = Mathf.Max(250, LogoScreenRect.xMax / scale + 24);
+            float bx = vw - 14 - 4 * 128;
             if (game.Phase == Phase.Setup)
                 GUI.Label(new Rect(x, 20, 300, 32), "初期配置", ui.Big);
+            else if (game.Phase == Phase.Finished)
+            {
+                // 棋譜再現: the TURN display becomes ◀◀ ◀ TURN n / N ▶ ▶▶ plus 「敵駒開示」.
+                float room = bx - 16 - x;
+                bool clock = room >= 560;
+                float w = Mathf.Min(clock ? room - 150 : room, 560);
+                ReplayBar.Draw(ui, game, new Rect(x, 16, w, 40), 132, 20);
+                if (clock) GUI.Label(new Rect(x + w + 16, 26, 140, 26), "経過 " + UiKit.FormatClock(game.ElapsedSeconds), ui.Clock);
+            }
             else
             {
                 GUI.Label(new Rect(x, 20, 160, 32), "TURN " + (game.Ply + (game.IsFinished ? 0 : 1)), ui.Big);
@@ -127,7 +145,6 @@ namespace MilitaryShogi.Game
                 GUI.Label(new Rect(x + 190, 22, 180, 30), who, new GUIStyle(ui.Big) { fontSize = 20 });
                 GUI.Label(new Rect(x + 360, 26, 200, 26), "経過 " + UiKit.FormatClock(game.ElapsedSeconds), ui.Clock);
             }
-            float bx = vw - 14 - 4 * 128;
             var research = new Rect(bx, 16, 120, 40);
             ResearchButtonRect = new Rect(research.x * scale, research.y * scale, research.width * scale, research.height * scale);
             UiKit.Spot("play.research", research);
@@ -150,7 +167,7 @@ namespace MilitaryShogi.Game
             string text = game.Phase == Phase.Setup ? "自軍の駒をクリック → 置きたいマスをクリックで入れ替え。準備ができたら「対局開始」。"
                 : game.Phase == Phase.PlayerTurn ? (game.SelectedNode >= 0 ? "移動先を選んでください（緑：移動　赤：攻撃　右クリックで取り消し）" : "あなたの番です。動かす駒をクリックしてください。")
                 : game.Phase == Phase.CpuThinking ? "CPUが考えています…"
-                : game.Phase == Phase.Finished ? game.ResultText() : "";
+                : game.Phase == Phase.Finished ? game.ResultText() + "　棋譜再現：矢印ボタンまたは ← → キーで1手ずつ" : "";
             GUI.Label(new Rect(16, vh - 30, vw - 32, 28), text, new GUIStyle(ui.Label) { alignment = TextAnchor.MiddleCenter });
         }
 
