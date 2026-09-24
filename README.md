@@ -145,6 +145,14 @@ PC版の **対戦モードだけ** をスマートフォンで遊べるように
 - **文字**：端末のCJKフォント（Noto Sans CJK等）を使用し、フォントファイルは同梱しない。
 - **APK**：`Build-Android.ps1` で `bin/Android/Release-<Version>/AF-MilitaryShogi-<Version>.apk`（ARM64/IL2CPP Release、デバッグ不可、シンボルなし、専用のローカルRelease鍵で署名）。自分の端末へインストールして遊ぶためのもので、GitHub Releases・`Distribution/` 等で **一般配布しない**。
 
+## ライセンス
+
+- ソースコードは [MIT License](LICENSE)（Copyright (c) 2026 af）。参照・改変・商用利用を含め自由に使えます。
+- コード以外の素材は [LICENSE-ASSETS.md](LICENSE-ASSETS.md)。作者が作った素材は CC BY 4.0 です。ただし、次は許諾していません。複製・改変したものを公開する場合は差し替えてください。
+  - 製品名・ブログ名、ロゴ、アプリアイコンなどのブランド素材
+  - KSO闘龍で描いた駒の文字と「総司令部」の画像（下記の生成スクリプトで別のフォントに作り直せます）
+- Unity のランタイムなど第三者のものは、それぞれのライセンスに従います。
+
 ## 駒の文字のフォントとテクスチャ生成
 
 - 駒の文字（16種の駒名）と盤の「総司令部」には **昭和書体「闘龍」（KSO闘龍）** を使用している（使用許諾：https://designpocket.jp/font/detail/23984 ）。

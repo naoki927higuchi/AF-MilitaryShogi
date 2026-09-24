@@ -20,3 +20,9 @@ ZIPをすべて展開し、フォルダー内の AF-MilitaryShogi.exe を起動�
 駒の文字は昭和書体「闘龍」（KSO闘龍）で描画した画像です（フォントファイルは同梱していません）。
 使用許諾：https://designpocket.jp/font/detail/23984
 効果音は外部素材を使わず、プログラムで生成しています。
+
+■ ライセンス
+ソースコード：MIT License（Copyright (c) 2026 af）
+素材：作者が作成したものはCC BY 4.0。製品名・ロゴ・アイコンと、KSO闘龍で描いた駒の文字の画像は許諾対象外です。
+詳細：https://github.com/naoki927higuchi/AF-MilitaryShogi/blob/master/LICENSE-ASSETS.md
+Unityのランタイムなど第三者のものは、それぞれのライセンスに従います。
