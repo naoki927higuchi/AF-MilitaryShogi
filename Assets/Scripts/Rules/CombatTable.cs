@@ -7,7 +7,7 @@ namespace MilitaryShogi.Rules
     /// <summary>
     /// Result of two pieces meeting. The table does not depend on who attacks
     /// (the spy beats the general in both directions). Source: the 31-piece
-    /// 勝敗表 distributed by 足立将棋センター (gunzin.pdf); the mine row there is
+    /// 勝敗表 distributed on the 足立区生涯学習センター site (gunzin.pdf); the mine row there is
     /// shifted by one column and is read as "loses to airplane and engineer, ties
     /// with everything else", matching the mine column.
     ///
