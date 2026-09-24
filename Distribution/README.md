@@ -4,7 +4,7 @@
 
 | 製品 | 最新版 | SHA256 |
 |---|---|---|
-| [AF-MilitaryShogi（ZIP）](AF-MilitaryShogi-1.3.0-Windows.zip) | 1.3.0 | [チェックサム](AF-MilitaryShogi-1.3.0-Windows.zip.sha256) |
+| [AF-MilitaryShogi（ZIP）](AF-MilitaryShogi-1.5.1-Windows.zip) | 1.5.1 | [チェックサム](AF-MilitaryShogi-1.5.1-Windows.zip.sha256) |
 
 Windows 10 / 11（x64）用です。別途用意するランタイム・外部ツールはありません。ZIPをすべて展開して `AF-MilitaryShogi.exe` を起動してください。
 
