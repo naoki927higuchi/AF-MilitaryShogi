@@ -37,6 +37,7 @@ namespace MilitaryShogi.Editor
             Directory.CreateDirectory(Path.GetDirectoryName(output));
 
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, PackageName);
+            AndroidAppIcon.Apply();
             var semantic = Version.Parse(version);
             PlayerSettings.Android.bundleVersionCode = checked(semantic.Major * 10000 + semantic.Minor * 100 + semantic.Build);
             PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel26;
