@@ -120,23 +120,14 @@ try {
     Check ($s.presetSlot -eq '1') 'preset: slot 2 selected by tap (after scrolling the sheet by touch)'
     $saved = $s.formation
     Invoke-Tap (Spot $s 'preset.save'); $s = State
-    Check ($s.presetSaving -eq 'True') 'preset: 保存 shows the name field'
+    Check ($s.presetSaving -eq 'True') 'preset: 現在の配置を保存… asks to confirm (保存 / やめる)'
+    Check (-not $s.ContainsKey('spot.preset.name')) 'preset: no name field (fixed names プリセット1〜5, 1.6.0)'
     Start-Sleep 1; $s = State
-    Check ((Get-Point (Spot $s 'preset.commit'))[1] -lt [int](($s.screen -split 'x')[1])) 'preset: the sheet scrolls so 保存 is visible'
-    Invoke-Tap (Spot $s 'preset.name'); Start-Sleep 1
-    $ime = @(& $adb shell dumpsys input_method | Select-String 'mInputShown=true').Count -gt 0
-    Check $ime 'preset name: tapping the name field opens the software keyboard'
-    Shot '03_portrait_preset_keyboard.png'
-    & $adb shell input text 'AT' | Out-Null
-    & $adb shell input keyevent 66 | Out-Null          # Enter: confirm on the keyboard
-    Start-Sleep 1
-    $ime = @(& $adb shell dumpsys input_method | Select-String 'mInputShown=true').Count -gt 0
-    if ($ime) { & $adb shell input keyevent 111 | Out-Null; Start-Sleep 1 }   # Esc hides the keyboard if still shown
-    $s = State
-    Shot '03b_portrait_preset_name.png'
+    Check ((Get-Point (Spot $s 'preset.commit'))[1] -lt [int](($s.screen -split 'x')[1])) 'preset: 保存 is visible'
+    Shot '03_portrait_preset_confirm.png'
     Invoke-Tap (Spot $s 'preset.commit'); $s = State
     $name = ($s.presets -split '\|')[1]
-    Check ($s.presetSaving -eq 'False' -and $name -ne 'プリセット2' -and $name -notlike '*(empty)*') "preset: saved with the name typed on the keyboard ($name)"
+    Check ($s.presetSaving -eq 'False' -and $name -like 'プリセット2*' -and $name -notlike '*(empty)*') "preset: saved under the fixed name ($name)"
     Invoke-Tap (Spot $s 'mobile.omakase'); $s = State
     Check ($s.formation -ne $saved) 'おまかせ配置 changes the placement'
     Invoke-Tap (Spot $s 'preset.load'); $s = State

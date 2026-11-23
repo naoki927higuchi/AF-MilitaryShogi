@@ -94,7 +94,7 @@ namespace MilitaryShogi.Game
                 Screen.autorotateToPortraitUpsideDown = false;
                 var mobile = controller.gameObject.AddComponent<MobileUi>();
                 mobile.Bind(controller, presentation);
-                if (WebSupport.IsWeb) mobile.Presets.FixedNames = true;   // phone browser: not supported, best effort
+                mobile.Presets.FixedNames = true;   // fixed names プリセット1〜5, no name entry (Web from the start; the Android app from 1.6.0)
             }
             else
             {
