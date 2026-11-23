@@ -56,6 +56,36 @@ script.onload = () => { createUnityInstance(canvas, config, () => {}).catch((m) 
 document.body.appendChild(script);
 </script></body></html>""" % names).encode('utf-8')
 
+# /fs/ : what this browser reports about full screen (for deciding when to show the full-screen button).
+FULLSCREEN_REPORT = """<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fullscreen report</title><style>body{font:16px/1.6 sans-serif;margin:16px}button{font-size:18px;padding:10px 16px;margin:12px 0}pre{white-space:pre-wrap;word-break:break-all}</style></head>
+<body><h3>全画面の対応状況</h3><pre id="out"></pre><button id="go">全画面を試す</button><pre id="result"></pre>
+<script>
+var root = document.documentElement, lines = [];
+function add(k, v) { lines.push(k + " = " + v); }
+add("document.fullscreenEnabled", document.fullscreenEnabled);
+add("document.webkitFullscreenEnabled", document.webkitFullscreenEnabled);
+add("requestFullscreen", typeof root.requestFullscreen);
+add("webkitRequestFullscreen", typeof root.webkitRequestFullscreen);
+add("devicePixelRatio", window.devicePixelRatio);
+add("userAgent", navigator.userAgent);
+document.getElementById("out").textContent = lines.join("
+");
+document.getElementById("go").onclick = function () {
+  var out = document.getElementById("result"), req = root.requestFullscreen || root.webkitRequestFullscreen;
+  if (!req) { out.textContent = "要求する関数がありません"; return; }
+  try {
+    var p = req.call(root);
+    out.textContent = "要求しました（戻り値: " + (p && p.then ? "Promise" : typeof p) + "）";
+    if (p && p.then) p.then(function () { out.textContent += "
+成功"; }, function (e) { out.textContent += "
+失敗: " + e; });
+    setTimeout(function () { out.textContent += "
+1.5秒後の状態: " + (!!(document.fullscreenElement || document.webkitFullscreenElement) ? "全画面" : "全画面ではない"); }, 1500);
+  } catch (e) { out.textContent = "例外: " + e; }
+};
+</script></body></html>""".encode('utf-8')
+
 class Handler(http.server.BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
 
@@ -75,6 +105,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         path = self.path.split('?', 1)[0]
         for prefix in ('/a/', '/b/'):
             if path.startswith(prefix): path = path[len(prefix) - 1:]
+        if path in ('/fs', '/fs/'): return self.send_bytes(200, FULLSCREEN_REPORT, 'text/html; charset=utf-8')
         if path in ('/ur', '/ur/'): return self.send_bytes(200, unityroom_like_page(), 'text/html; charset=utf-8')
         if path == '/': path = '/index.html'
         full = os.path.normpath(os.path.join(BUILD, path.lstrip('/')))
