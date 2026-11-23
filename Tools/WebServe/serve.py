@@ -57,7 +57,7 @@ document.body.appendChild(script);
 </script></body></html>""" % names).encode('utf-8')
 
 # /fs/ : what this browser reports about full screen (for deciding when to show the full-screen button).
-FULLSCREEN_REPORT = """<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+FULLSCREEN_REPORT = r"""<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>fullscreen report</title><style>body{font:16px/1.6 sans-serif;margin:16px}button{font-size:18px;padding:10px 16px;margin:12px 0}pre{white-space:pre-wrap;word-break:break-all}</style></head>
 <body><h3>全画面の対応状況</h3><pre id="out"></pre><button id="go">全画面を試す</button><pre id="result"></pre>
 <script>
