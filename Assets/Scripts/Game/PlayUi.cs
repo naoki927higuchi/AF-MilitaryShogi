@@ -153,10 +153,11 @@ namespace MilitaryShogi.Game
             if (presentation.ResearchAvailable && GUI.Button(research, "研究モードへ", ui.Button)) presentation.SetMode(PresentationMode.Research);
             if (GUI.Button(new Rect(bx + 128, 16, 120, 40), "あそびかた", ui.Button)) presentation.OpenHelp();
             if (GUI.Button(new Rect(bx + 256, 16, 120, 40), "設定", ui.Button)) { presentation.SettingsOpen = !presentation.SettingsOpen; confirmNew = false; }
-            // Web (1.6.0): before the game 新規対局 is disabled, as on phones (it would only redo the
-            // placement and discard one arranged by hand). Windows keeps its behaviour for now.
+            // Before the game 新規対局 is disabled, as on phones (1.6.0: first on the Web, then Windows too):
+            // it would only redo the placement and discard one arranged by hand. (研究モード keeps its own
+            // 新規対局, which is for trying seeds.)
             bool enabled = GUI.enabled;
-            if (WebSupport.IsWeb && game.Phase == Phase.Setup) GUI.enabled = false;
+            if (game.Phase == Phase.Setup) GUI.enabled = false;
             if (GUI.Button(new Rect(bx + 384, 16, 120, 40), "新規対局", ui.Button))
             {
                 if (game.Phase == Phase.Setup || game.IsFinished) game.NewSetup(true);

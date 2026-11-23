@@ -233,9 +233,9 @@ namespace MilitaryShogi.Game
             GUILayout.Space(6);
             GUILayout.Label("CPUの強さ／戦い方（対戦モードと共通）", small);
             int strength = GUILayout.Toolbar((int)game.Settings.Strength, new[] { "弱", "中", "強" }, button);
-            if (strength != (int)game.Settings.Strength) { game.Settings.Strength = (CpuStrength)strength; game.RefreshCpu(); }
+            if (strength != (int)game.Settings.Strength) { game.Settings.Strength = (CpuStrength)strength; game.RefreshCpu(); UserData.CpuChoiceChanged(game.Settings); }
             int temper = GUILayout.SelectionGrid(2 - game.Settings.Temperament, Enumerable.Range(0, 5).Select(i => CpuProfile.TemperamentName(2 - i)).ToArray(), 3, button);
-            if (temper != 2 - game.Settings.Temperament) { game.Settings.Temperament = 2 - temper; game.RefreshCpu(); }
+            if (temper != 2 - game.Settings.Temperament) { game.Settings.Temperament = 2 - temper; game.RefreshCpu(); UserData.CpuChoiceChanged(game.Settings); }
             GUILayout.Space(8);
             GUILayout.Label("自軍の駒をクリック → 移動先／交換先をクリック。青いマスだけが置けるマスです（地雷・軍旗は突入口に、軍旗は最後列に置けません）。", small);
             GUILayout.FlexibleSpace();

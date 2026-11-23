@@ -113,10 +113,11 @@ namespace MilitaryShogi.Game
         }
 
         /// <summary>
-        /// Web only (1.6.0): the CPU strength and temperament chosen before a game are kept too, so a
-        /// page reload does not put them back to 中・バランス. Windows and Android keep their behaviour.
+        /// The CPU strength and temperament chosen before a game are kept too, so a restart (or a page
+        /// reload) does not put them back to 中・バランス. (1.6.0: first on the Web, then Windows and the
+        /// Android app.) Seeds and the research-only formation style are not kept.
         /// </summary>
-        public static bool KeepsCpuChoice { get { return WebSupport.IsWeb; } }
+        public static bool KeepsCpuChoice { get { return true; } }
 
         /// <summary>Call after the player changes the CPU strength or temperament.</summary>
         public static void CpuChoiceChanged(GameSettings s)
