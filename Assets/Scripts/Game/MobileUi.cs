@@ -73,8 +73,19 @@ namespace MilitaryShogi.Game
         {
             get
             {
-                if (Portrait) return sheetCollapsed ? 118f : Mathf.Min(sheetContentHeight + 12f, safe.height * 0.58f);
-                return 0f;
+                if (!Portrait) return 0f;
+                if (sheetCollapsed) return 118f;
+                if (WebSupport.IsWeb)
+                {
+                    // Web (phone browser, full screen): show the whole sheet without scrolling when the
+                    // board still fits above it. Before the game there are no loss strips, and the board
+                    // is as wide as the screen, so it needs about 0.88 × width of height; the rest of the
+                    // play area is margin that the sheet may take. (1.6.0)
+                    float fixedRows = Touch + 18f;   // the row above the scrolling part, and its gaps
+                    float room = safe.height - TopBarHeight - safe.width * 0.88f;
+                    return Mathf.Min(sheetContentHeight + fixedRows, Mathf.Max(room, safe.height * 0.58f));
+                }
+                return Mathf.Min(sheetContentHeight + 12f, safe.height * 0.58f);
             }
         }
         private const float SideSheetWidth = 340f;
