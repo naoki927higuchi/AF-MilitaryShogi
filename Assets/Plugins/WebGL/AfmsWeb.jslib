@@ -27,7 +27,8 @@ mergeInto(LibraryManager.library, {
   //  - adds a viewport meta when the page has none;
   //  - lets Unity read the real device pixel ratio again (Unity asks Module.devicePixelRatio first);
   //  - adds a full-screen button when the page has none (it needs a real tap, so it is a DOM
-  //    element; hidden while in full screen; nothing is added where the browser cannot do it).
+  //    element; hidden while in full screen; nothing is added where the browser cannot do it,
+  //    and it is removed if a request fails).
   // Only on phones and tablets; a desktop browser's page is left alone. Our own page already has
   // all three, so nothing changes there.
   AfmsPreparePage: function () {
@@ -44,9 +45,9 @@ mergeInto(LibraryManager.library, {
       if (canvas) canvas.style.touchAction = 'none';
       var root = document.documentElement;
       var request = root.requestFullscreen || root.webkitRequestFullscreen;
-      // iPhone has no full screen for a page: no button there (it would do nothing).
-      var canFull = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) && !/iPhone|iPod/i.test(navigator.userAgent);
-      if (!request || !canFull || document.querySelector('#fullscreen') || document.querySelector('#afms-fullscreen')) return;
+      // Feature detection only, no OS names (an iPhone reports nothing here, measured 2026-11-24).
+      var canFull = !!request && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+      if (!canFull || document.querySelector('#fullscreen') || document.querySelector('#afms-fullscreen')) return;
       var button = document.createElement('div');
       button.id = 'afms-fullscreen';
       button.textContent = '⛶';
@@ -55,8 +56,16 @@ mergeInto(LibraryManager.library, {
         'border:1px solid rgba(255,214,133,.7);background:rgba(11,8,6,.6);color:#ffd685;font-size:22px;' +
         'line-height:38px;text-align:center;cursor:pointer;user-select:none;-webkit-user-select:none;z-index:1000;';
       var isFull = function () { return !!(document.fullscreenElement || document.webkitFullscreenElement); };
-      var update = function () { button.style.display = isFull() ? 'none' : 'block'; };
-      button.onclick = function () { try { request.call(root); } catch (e) { console.warn('AFMS fullscreen failed', e); } };
+      var update = function () { button.style.display = (!canFull || isFull()) ? 'none' : 'block'; };
+      // A request that fails all the same (rejected, or still not full screen a moment later) removes the button.
+      var failed = function () { if (!isFull()) { canFull = false; update(); } };
+      button.onclick = function () {
+        try {
+          var p = request.call(root);
+          if (p && p.catch) p.catch(failed);
+          setTimeout(failed, 1500);
+        } catch (e) { failed(); }
+      };
       document.addEventListener('fullscreenchange', update);
       document.addEventListener('webkitfullscreenchange', update);
       document.body.appendChild(button);

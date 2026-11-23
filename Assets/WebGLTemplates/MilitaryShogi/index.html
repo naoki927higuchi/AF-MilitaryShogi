@@ -69,14 +69,20 @@
           document.querySelector("#loading").style.display = "none";
           var button = document.querySelector("#fullscreen");
           function isFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
-          // No button where the browser cannot do it: iPhone has no full screen for a page (the button
-          // did nothing there). Android and desktop browsers report it as enabled.
-          var canFull = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) && !/iPhone|iPod/i.test(navigator.userAgent);
+          // The button is shown only where the browser says it can do full screen (feature detection,
+          // no OS names: an iPhone reports nothing here, measured 2026-11-24). If a request fails all
+          // the same - rejected, or still not full screen a moment later - the button is removed.
+          var root = document.documentElement;
+          var request = root.requestFullscreen || root.webkitRequestFullscreen;
+          var canFull = !!request && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
           function update() { button.style.display = (!canFull || isFull()) ? "none" : "block"; }
+          function failed() { if (!isFull()) { canFull = false; update(); } }
           button.onclick = function () {
-            var el = document.documentElement;
-            var req = el.requestFullscreen || el.webkitRequestFullscreen;
-            if (req) req.call(el);
+            try {
+              var p = request.call(root);
+              if (p && p.catch) p.catch(failed);
+              setTimeout(failed, 1500);
+            } catch (e) { failed(); }
           };
           document.addEventListener("fullscreenchange", update);
           document.addEventListener("webkitfullscreenchange", update);
