@@ -21,7 +21,16 @@ namespace MilitaryShogi.Editor
         public const string Template = "PROJECT:MilitaryShogi";
 
         [MenuItem("MilitaryShogi/Build Web (WebGL)")]
-        public static void BuildWeb()
+        public static void BuildWeb() { Build(false); }
+
+        /// <summary>
+        /// Check build: bin/WebDev-&lt;Version&gt;/ with the define AFMS_WEBDEV (keys that open the referee
+        /// screens, see WebDevHooks). Never published; the public build does not contain that code.
+        /// </summary>
+        [MenuItem("MilitaryShogi/Build Web check build (WebDev)")]
+        public static void BuildWebDev() { Build(true); }
+
+        private static void Build(bool dev)
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("Stop Play mode before building.");
             ProjectSetup.Run();
@@ -29,8 +38,8 @@ namespace MilitaryShogi.Editor
             string version = ProjectSetup.ReadVersion();
             if (!System.Text.RegularExpressions.Regex.IsMatch(version, @"^\d+\.\d+\.\d+$")) throw new ArgumentException("Version must be MAJOR.MINOR.PATCH: " + version);
             if (version != GameBootstrap.Version) throw new InvalidOperationException("VERSION.txt (" + version + ") and GameBootstrap.Version (" + GameBootstrap.Version + ") differ.");
-            string output = Path.Combine(root, "bin", "Web-" + version);
-            if (Directory.Exists(output) && Array.IndexOf(Environment.GetCommandLineArgs(), "-overwriteUnpublished") < 0)
+            string output = Path.Combine(root, "bin", (dev ? "WebDev-" : "Web-") + version);
+            if (!dev && Directory.Exists(output) && Array.IndexOf(Environment.GetCommandLineArgs(), "-overwriteUnpublished") < 0)
                 throw new IOException("Output already exists: " + output);
 
             var font = AssetDatabase.LoadAssetAtPath<Font>(FontPath);
@@ -57,6 +66,7 @@ namespace MilitaryShogi.Editor
                     locationPathName = output,
                     target = BuildTarget.WebGL,
                     options = BuildOptions.None,
+                    extraScriptingDefines = dev ? new[] { "AFMS_WEBDEV" } : new string[0],
                 });
                 if (report.summary.result != BuildResult.Succeeded) throw new Exception("Web build failed: " + report.summary.result);
             }

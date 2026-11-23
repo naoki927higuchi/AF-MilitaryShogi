@@ -115,6 +115,9 @@ namespace MilitaryShogi.Game
             }
             var help = controller.gameObject.AddComponent<HelpUi>();
             help.Bind(controller, presentation);
+#if AFMS_WEBDEV
+            controller.gameObject.AddComponent<WebDevHooks>().Bind(controller);   // check build only
+#endif
             var judge = controller.gameObject.AddComponent<JudgeUi>();
             judge.Touch = Mobile;
             judge.Bind(controller);

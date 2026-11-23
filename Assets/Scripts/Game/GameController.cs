@@ -771,6 +771,14 @@ namespace MilitaryShogi.Game
             RefereeNoteUntil = Time.unscaledTime + 5f;
         }
 
+#if AFMS_WEBDEV
+        /// <summary>Web check build only: show the two short referee messages with their real texts.</summary>
+        public void TestRefereeNote(bool first)
+        {
+            ShowRefereeNote(first ? "審判：同じ局面の反復が続いています。CPUは今後この反復を続けません" : "審判：CPUは反復を続けない手を指しました");
+        }
+#endif
+
         private IEnumerator JudgeNotice(JudgeNoticeKind kind)
         {
             if (kind == JudgeNoticeKind.NoCapturers) resignNoticeShown = true;

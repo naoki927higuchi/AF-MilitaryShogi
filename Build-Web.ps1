@@ -1,5 +1,6 @@
 [CmdletBinding()]
-param([string]$UnityEditor, [switch]$OverwriteUnpublished)
+param([string]$UnityEditor, [switch]$OverwriteUnpublished, [switch]$Dev)
+# -Dev: check build into bin/WebDev-<VERSION>/ (keys that open the referee screens; never published).
 # Builds the Web (WebGL) version into bin/Web-<VERSION>/ (index.html, Build/) with Unity in batch mode.
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -16,9 +17,10 @@ $logDir = Join-Path $PSScriptRoot 'Builds\Logs'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $log = Join-Path $logDir ([DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ') + '-build-web.log')
 $extra = @()
+$method = if ($Dev) { 'MilitaryShogi.Editor.WebBuild.BuildWebDev' } else { 'MilitaryShogi.Editor.WebBuild.BuildWeb' }
 if ($OverwriteUnpublished) { $extra += '-overwriteUnpublished' }
 Write-Host "Building AF-MilitaryShogi $version for Web with Unity $editorVersion (log: $log)"
-& $UnityEditor -batchmode -quit -nographics -projectPath $PSScriptRoot -buildTarget WebGL -executeMethod MilitaryShogi.Editor.WebBuild.BuildWeb @extra -logFile $log | Out-Host
+& $UnityEditor -batchmode -quit -nographics -projectPath $PSScriptRoot -buildTarget WebGL -executeMethod $method @extra -logFile $log | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "Unity build failed (exit $LASTEXITCODE). See $log" }
 $line = Get-Content -LiteralPath $log | Where-Object { $_ -match '^WEB_BUILD=' } | Select-Object -Last 1
 if (-not $line) { throw "Unity did not report a Web build. See $log" }
