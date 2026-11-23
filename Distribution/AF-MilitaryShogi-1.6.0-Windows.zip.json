@@ -1,0 +1,9 @@
+{
+  "ReleaseVersion": "1.6.0",
+  "PreparedAt": "2026-11-24T01:52:20.7592030+09:00",
+  "PreparationCommit": "1af95133760e5d9b66ca48ad7a3d8a73bb823559",
+  "SourceZip": "Builds/Package/AF-MilitaryShogi-1.6.0-Windows.zip",
+  "SHA256": "8bfb3b204337081749241104cbb4c3a563f1e9aea22fd97ab1896e164508af4b",
+  "Size": 45707180,
+  "Note": "Packaged from the verified bin/Release build. Commit and push are separate steps."
+}

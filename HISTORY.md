@@ -2,7 +2,9 @@
 
 日時は日本標準時（`YYYY-MM-DD HH:MM:SS +09:00`）で記録する。新しい版を上に追加する。
 
-## 1.6.0 — 2026-11-23 18:16:27 +09:00（Web版の試作・未公開）
+## 1.6.0 — 2026-11-23 18:16:27 +09:00（Windows版は 2026-11-24 公開。Web版は試作・未公開）
+
+- 2026-11-24 公開（Windows版）：ユーザーの公開指示により、検証済みの `bin/Release-1.6.0`（実EXE自動検証 A/B PASS、指紋72C15D3F2B9D83FF）から作った配布ZIPを `Distribution/AF-MilitaryShogi-1.6.0-Windows.zip` に配置（43.6MB、161エントリ、SHA256 8bfb3b20…）。同じZIPを `C:/usr/AF-MilitaryShogi` へ展開して起動を確認済み。Windows版の変更点は下の「不具合修正（全プラットフォーム共通）」2件と、追記にある「Windows版への逆輸入」2件。Web版（unityroom は非公開の動作確認のみ）とAndroid APK は公開していない。GitHub Release は作っていない（従来どおり `Distribution/` で配布）。
 
 - **Web（WebGL）版を追加**（互換性を保つ機能追加）。`Build-Web.ps1` で `bin/Web-<Version>/`（`index.html`、`Build/`、Gzip、約15MB）。対象はPCのブラウザ。スマートフォンのブラウザは対象外（動作を保証しない）。公開していない。
 - Web版は **対戦モードのみ**（Android版と同じ。研究モード・思考モニター・Seed操作・研究用ショートカットなし）。画面はPC版の `PlayUi`。Web固有の処理は `WebSupport`（`WebSupport.IsWeb` の分岐）に集め、Windows・Androidの経路は変えていない。
