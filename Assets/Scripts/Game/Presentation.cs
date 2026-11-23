@@ -47,6 +47,7 @@ namespace MilitaryShogi.Game
         private GameController game;
         private Rect lastRect;
         private bool lastGraves;
+        private int lastWidth, lastHeight;
         private PresentationMode lastMode = (PresentationMode)(-1);
         public int WatchdogRepairs { get; private set; }
 
@@ -133,8 +134,12 @@ namespace MilitaryShogi.Game
                 rect = new Rect(ResearchBoardArea.x / Screen.width, 0, ResearchBoardArea.width / Screen.width, 1f - ResearchBoardArea.y / Screen.height);
             if (rect.width <= 0 || rect.height <= 0) return;
             bool graves = GraveyardsVisible;
-            if (rect != lastRect || Mode != lastMode || graves != lastGraves)
+            // The fit bakes the aspect ratio into a custom projection, so a change of the window size
+            // alone (same normalised rect, e.g. width only) must refit too, or the board is stretched. (1.6.0)
+            if (rect != lastRect || Mode != lastMode || graves != lastGraves || Screen.width != lastWidth || Screen.height != lastHeight)
             {
+                lastWidth = Screen.width;
+                lastHeight = Screen.height;
                 lastRect = rect;
                 lastMode = Mode;
                 lastGraves = graves;
