@@ -19,7 +19,9 @@ namespace MilitaryShogi.Game
         /// <summary>Touch wording (「タップしたとき」) on Android.</summary>
         public bool Touch;
         /// <summary>Panel height for the current row height.</summary>
-        public float PreferredHeight { get { return Height + (Row - 30f) * 6f + (Touch ? 40f : 0f); } }
+        public float PreferredHeight { get { return Height + (Row - 30f) * 6f + (Touch ? 40f : 0f) + WebExtra; } }
+        /// <summary>Web (1.6.0): Noto Sans JP is wider and taller than the Windows UI fonts, so one label wraps; room for that.</summary>
+        private static float WebExtra { get { return WebSupport.IsWeb ? 44f : 0f; } }
 
         /// <summary>Draws inside a GUILayout area. Returns true when 閉じる was pressed.</summary>
         public bool Draw(UiKit ui)
@@ -79,13 +81,15 @@ namespace MilitaryShogi.Game
         public string Message = "";
         /// <summary>Button row height (larger on Android).</summary>
         public float Row = 28f;
+        /// <summary>Web (1.6.0): no name entry; the slots keep their fixed names プリセット1〜5. Saving still asks once.</summary>
+        public bool FixedNames;
 
         public PresetPanel(GameController game) { this.game = game; }
 
         public void BeginSave()
         {
             Saving = true;
-            NameDraft = game.Presets.NameForSave(SelectedSlot);
+            NameDraft = FixedNames ? FormationPresets.DefaultName(SelectedSlot) : game.Presets.NameForSave(SelectedSlot);
         }
 
         public void CommitSave()
@@ -115,10 +119,14 @@ namespace MilitaryShogi.Game
             GUILayout.Label(slot.Name + (slot.IsEmpty ? "（空き）" : ""), ui.Small);
             if (Saving)
             {
-                GUILayout.Label("名前（そのままでも保存できます）", ui.Small);
-                GUI.SetNextControlName("PresetName");
-                NameDraft = GUILayout.TextField(NameDraft ?? "", 40, textField, GUILayout.Height(Row));
-                UiKit.SpotLast("preset.name");
+                if (FixedNames) GUILayout.Label(slot.IsEmpty ? "現在の配置をここに保存します" : "保存済みの配置を上書きします", ui.Small);
+                else
+                {
+                    GUILayout.Label("名前（そのままでも保存できます）", ui.Small);
+                    GUI.SetNextControlName("PresetName");
+                    NameDraft = GUILayout.TextField(NameDraft ?? "", 40, textField, GUILayout.Height(Row));
+                    UiKit.SpotLast("preset.name");
+                }
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("保存", ui.Button, GUILayout.Height(Row))) CommitSave();
                 UiKit.SpotLast("preset.commit");

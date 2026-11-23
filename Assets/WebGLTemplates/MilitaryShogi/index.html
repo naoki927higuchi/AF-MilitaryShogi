@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes">
+    <title>{{{ PRODUCT_NAME }}}</title>
+    <style>
+      html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #0b0806; }
+      #unity-container { position: fixed; left: 0; top: 0; width: 100%; height: 100%; }
+      #unity-canvas { display: block; width: 100%; height: 100%; background: #0b0806; touch-action: none; }
+      #loading { position: fixed; left: 0; top: 0; width: 100%; height: 100%; display: flex; flex-direction: column;
+                 align-items: center; justify-content: center; color: #f2e8d6; font-family: sans-serif; pointer-events: none; }
+      #loading .name { font-size: 28px; letter-spacing: 2px; margin-bottom: 18px; color: #ffd685; }
+      #bar { width: 260px; max-width: 70%; height: 8px; border: 1px solid #ffd685; border-radius: 5px; overflow: hidden; }
+      #bar-full { width: 0%; height: 100%; background: #ffd685; }
+      #loading .note { font-size: 13px; margin-top: 12px; opacity: .75; }
+      #fullscreen { position: fixed; right: 6px; bottom: 6px; width: 40px; height: 40px; border-radius: 8px; border: 1px solid rgba(255,214,133,.7);
+                    background: rgba(11,8,6,.6); color: #ffd685; font-size: 22px; line-height: 38px; text-align: center; cursor: pointer;
+                    user-select: none; -webkit-user-select: none; display: none; }
+      #warning { position: fixed; left: 0; top: 0; width: 100%; font-family: sans-serif; font-size: 14px; display: none; z-index: 10; }
+    </style>
+  </head>
+  <body>
+    <div id="unity-container">
+      <canvas id="unity-canvas" tabindex="-1"></canvas>
+    </div>
+    <div id="loading">
+      <div class="name">{{{ PRODUCT_NAME }}}</div>
+      <div id="bar"><div id="bar-full"></div></div>
+      <div class="note">読み込み中…</div>
+    </div>
+    <div id="fullscreen" title="全画面">&#x26F6;</div>
+    <div id="warning"></div>
+    <script>
+      var canvas = document.querySelector("#unity-canvas");
+
+      function unityShowBanner(msg, type) {
+        var banner = document.querySelector("#warning");
+        var div = document.createElement("div");
+        div.textContent = msg;
+        div.style = "padding: 8px; background: " + (type == "error" ? "#c0392b; color: #fff" : "#f1c40f; color: #000");
+        banner.appendChild(div);
+        banner.style.display = "block";
+        if (type != "error") setTimeout(function () { banner.removeChild(div); if (!banner.children.length) banner.style.display = "none"; }, 5000);
+      }
+
+      // The game saves presets and settings to the browser by itself (AfmsSyncFiles); this page
+      // sets nothing for that, so the game behaves the same on hosts that use their own page.
+      var buildUrl = "Build";
+      var config = {
+        arguments: [],
+        dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
+        frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+        codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+        productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+        productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+        showBanner: unityShowBanner,
+      };
+
+      var script = document.createElement("script");
+      script.src = buildUrl + "/{{{ LOADER_FILENAME }}}";
+      script.onload = function () {
+        createUnityInstance(canvas, config, function (progress) {
+          document.querySelector("#bar-full").style.width = (100 * progress) + "%";
+        }).then(function (unityInstance) {
+          window.unityInstance = unityInstance;
+          document.querySelector("#loading").style.display = "none";
+          var button = document.querySelector("#fullscreen");
+          function isFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+          function update() { button.style.display = isFull() ? "none" : "block"; }
+          button.onclick = function () {
+            var el = document.documentElement;
+            var req = el.requestFullscreen || el.webkitRequestFullscreen;
+            if (req) req.call(el);
+          };
+          document.addEventListener("fullscreenchange", update);
+          document.addEventListener("webkitfullscreenchange", update);
+          update();
+        }).catch(function (message) {
+          alert(message);
+        });
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>

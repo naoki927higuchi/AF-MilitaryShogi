@@ -101,7 +101,12 @@ namespace MilitaryShogi.Game
             var savedColor = GUI.color;
             Vector2 d = b - a;
             float angle = Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg;
-            GUIUtility.RotateAroundPivot(angle, a);
+            // The pivot is taken in screen pixels (after GUI.matrix), so scale it; with the bare
+            // point the line swings away whenever the UI scale is not 1 (window height ≠ 900). (1.6.0)
+            // Offsets of enclosing groups/areas are added unscaled (see Spot), hence the second term.
+            float s = saved.m00;
+            Vector2 groups = GUIUtility.GUIToScreenPoint(a) - a * s;
+            GUIUtility.RotateAroundPivot(angle, a * s + groups * (s - 1f));
             GUI.color = color;
             GUI.DrawTexture(new Rect(a.x, a.y - width / 2f, d.magnitude, width), White);
             GUI.matrix = saved;

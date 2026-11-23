@@ -10,11 +10,12 @@
 
 | 項目 | 内容 |
 |---|---|
-| 対象プラットフォーム | Windows |
+| 対象プラットフォーム | Windows。Android（1.3.0〜、一般配布しない）。Web（WebGL、1.6.0〜、PCのブラウザ。スマートフォンのブラウザは対象外で動作を保証しない。試作・未公開） |
 | 製品プロジェクト | Unityプロジェクト（Unity 6.6 = 6000.6.2f1、Built-in Render Pipeline、Mono、Windows x64） |
 | バージョン設定元 | `VERSION.txt`（3桁）。`GameBootstrap.Version` と一致しないとビルドが失敗する。ビルド時に `PlayerSettings.bundleVersion` へ反映 |
 | Windowsリリース出力 | `bin/Release-<Version>/AF-MilitaryShogi.exe`（`Build-Windows.ps1`） |
 | Androidリリース出力 | `bin/Android/Release-<Version>/AF-MilitaryShogi-<Version>.apk`（`Build-Android.ps1`、1.3.0〜）。ARM64/IL2CPP Release、デバッグ不可、シンボルなし。SHA256・マニフェスト・署名の検証結果を併置。Git管理外。一般配布しない |
+| Web出力 | `bin/Web-<Version>/`（`Build-Web.ps1`、1.6.0〜。`index.html` と `Build/`、Gzip）。手元の確認は `python -I Tools/WebServe/serve.py`（127.0.0.1 のみ）。Git管理外。公開先は未定 |
 | Android実機確認の端末 | 開発・試験の動作確認は Pixel 7 Pro（USBデバッグ）で行う。Galaxy S26 Ultra はユーザーの実戦プレイ用端末で、転送・インストールはユーザーが明示的に指示した場合だけ行う（上書きインストールでデータを残す。S26で自動試験はしない）（2026-09-24〜）。`Test-Android.ps1` は `ANDROID_SERIAL` で端末を指定する。adbはAndroid SDKのplatform-tools（Unity同梱版と混在させない） |
 | Android署名 | 専用のローカルRelease鍵。鍵とDPAPI暗号化パスワードは `.local/android-signing/`（Git管理外）。同一アプリの更新は同じ鍵で行う |
 | Windows配布ZIP | `Package-Windows.ps1` で `Builds/Package/` に作成・検証（100MB未満、デバッグ成果物なし、同梱README）→ 公開準備で `Prepare-Release.ps1` が `Distribution/` へZIP・SHA256・JSONを配置 |
@@ -39,6 +40,7 @@
 - ゲーム用に加工・生成したリソースは `Assets/Generated/`（ランタイム読込は `Assets/Generated/Resources/`）、ゲームに入らない確認用の生成物は `Generated/` に置く。
 - 駒・盤テクスチャは `Tools/TextureGen/generate_textures.py` で原本から機械的・再現可能に生成する。手作業で画像を編集しない。生成物の入力ハッシュは `Generated/texture_generation_manifest.json` に記録される。
 - 昭和書体「闘龍」（KSO闘龍）は、正規ライセンスで開発PCのOSへインストールしたものだけを生成時に読み込む（1ライセンス/1PC）。フォントファイルをリポジトリ・Reference・Assets・ビルド・Distribution・APKへ置かない（`.gitignore` でフォントファイルと `Reference/UserProvided/Fonts/` を除外）。ビルドやCI・端末へフォントをコピー・インストールする構成にしない。
+- 例外（1.6.0〜）：Web版の画面の文字用に、Noto Sans JP（SIL Open Font License 1.1）を `Assets/WebFonts/` にライセンス文と一緒に置く（`.gitignore` はこの1ファイルだけ例外）。Webビルドにだけ入れ（`WebBuild` がビルドの間だけプリロード対象に加える）、Windows・Androidのビルドに入れない。駒の文字の生成には使わない。
 - 生成スクリプトはKSO闘龍がなくても止めず、OSの日本語フォントへ代替して完走する（代替した旨を表示し、`Generated/texture_generation_manifest.json` に requested/actual/fallback を記録）。代替フォントの生成物で正式な生成済みテクスチャを上書き・コミットしない。通常のビルド・配布ZIP作成は生成スクリプトを実行しない（2026-09-24〜）。
 - 効果音は外部の音源・効果音素材を使わず、`Tools/AudioGen/generate_sfx.py` で固定Seedから再現可能に生成する（`audio_manifest.json`）。木の乾いた物理音に限り、銃声・爆発・サイレン・電子音・単一周波数の音、BGMを入れない（1.2.0〜）。
 
@@ -65,6 +67,7 @@
 - Android版（1.3.0〜）は対戦モードのみ。研究モード・思考モニター・Seed操作・CPU真値表示・研究用の履歴とショートカットを載せない。ゲーム本体はPCと共通コードとし、Android専用なのはPresentation（`MobileUi`）だけ。画面回転・バックグラウンドはPresentation／一時停止だけで扱い、GameSession・CPU・乱数・経過時間を作り直さない。
 - 双方の占領可能駒（大将〜少佐）が0になったら引き分け。プレイヤーだけ0になったら審判が一局に一度だけ投了を確認する。CPUは投了しない。CPU側だけ0になったことをプレイヤーへ通知しない（1.3.0〜）。
 - 膠着の審判介入（1.4.0〜）は Observation の `RepetitionReferee` だけで判定し、公開局面（駒番号・位置・手番）と公開の着手記録以外を使わない（駒の正体・占領可否・CPUの推定や評価値・完全情報の勝敗を使わない。テストで検査）。CPUへの介入は決定後の選択（`RefereeChoice`）で反復に戻る手を次善手に替えるだけで、評価関数・既存の反復抑制に手を入れない。
+- Web版（1.6.0〜、2026-11-23 ユーザー決定）は対戦モードのみ、対象はPCのブラウザ（スマートフォンのブラウザは動作を保証しない）。Web固有の処理は `WebSupport` に集め、`WebSupport.IsWeb` の分岐で足す（Windows・Androidの経路を変えない）。プリセットと設定は固定のフォルダー `/idbfs/AF-MilitaryShogi/` に置き、書き込みのたびにゲーム側からIndexedDBへ写す。保存先に `persistentDataPath`（ページのURLで変わる）を使わず、ページ側の設定（`autoSyncPersistentDataPath` など）に頼らない（配信先のページは選べない）。保存はブラウザごとで、ファイルへの書き出し・読み込みは作らない。プリセット名は「プリセット1〜5」の固定で、名前の入力欄を出さない（上書きの確認は出す）。CPU思考はメインスレッドで実行し、思考の内容を変えない。
 - IMGUIの描画は `UiGuard` で包み、例外で入力状態（hotControl・keyboardControl・GUI.enabled・matrix）が残らないようにする。あそびかたと一時停止・timeScaleの整合は `Presentation` のウォッチドッグで保つ。見えないオーバーレイが入力を塞ぐ状態を作らない（EXE自動検証のストレステストで検査）。
 
 ## 検証記録と完了報告（本プロジェクト固有、2026-09-24〜）

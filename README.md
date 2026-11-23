@@ -145,6 +145,16 @@ PC版の **対戦モードだけ** をスマートフォンで遊べるように
 - **文字**：端末のCJKフォント（Noto Sans CJK等）を使用し、フォントファイルは同梱しない。
 - **APK**：`Build-Android.ps1` で `bin/Android/Release-<Version>/AF-MilitaryShogi-<Version>.apk`（ARM64/IL2CPP Release、デバッグ不可、シンボルなし、専用のローカルRelease鍵で署名）。自分の端末へインストールして遊ぶためのもので、GitHub Releases・`Distribution/` 等で **一般配布しない**。
 
+## Web版（1.6.0、試作・未公開）
+
+PC版の **対戦モードだけ** をPCのブラウザで遊べるようにしたもの（WebGL）。研究モードは搭載しない。スマートフォンのブラウザは対象外（動作を保証しない）。ゲーム本体はPC版と同じコードで、画面もPC版の対戦モードと同じ。
+
+- **プリセットと設定**：ブラウザの保存領域（IndexedDB）に保存する。ブラウザごとの保存で、別のブラウザ・別のPCには引き継がれない。ブラウザのサイトデータを消すと消える。ファイルへの書き出し・読み込みはない。
+- **プリセット**：PCと同じ5枠。名前は「プリセット1〜5」の固定（名前の入力はない）。保存時に確認を出す。
+- **CPU**：ブラウザではスレッドが使えないため、画面と同じスレッドで思考する（内容は同じ）。
+- **文字**：Noto Sans JP（SIL Open Font License 1.1）を同梱。
+- **ビルドと確認**：`Build-Web.ps1` で `bin/Web-<Version>/`。`python -I Tools/WebServe/serve.py` で配信し、`http://localhost:8769/` を開く（このPCからだけ開ける）。
+
 ## ライセンス
 
 - ソースコードは [MIT License](LICENSE)（Copyright (c) 2026 af）。参照・改変・商用利用を含め自由に使えます。
@@ -157,7 +167,7 @@ PC版の **対戦モードだけ** をスマートフォンで遊べるように
 
 - 駒の文字（16種の駒名）と盤の「総司令部」には **昭和書体「闘龍」（KSO闘龍）** を使用している（使用許諾：https://designpocket.jp/font/detail/23984 ）。
 - 配布版の駒テクスチャは、正規ライセンスのKSO闘龍で画像化して生成済みで、PNGとしてコミットしてある（`Assets/Generated/Resources/Textures/`）。
-- **フォント本体はリポジトリにも配布物（Windows ZIP・Android APK）にも含まれない。** `.gitignore` でフォントファイル（otf/ttf/ttc/woff/woff2/eot）を除外している。
+- **KSO闘龍のフォント本体はリポジトリにも配布物（Windows ZIP・Android APK・Webビルド）にも含まれない。** `.gitignore` でフォントファイル（otf/ttf/ttc/woff/woff2/eot）を除外している。例外は、Web版の画面の文字に使う Noto Sans JP（SIL Open Font License 1.1、`Assets/WebFonts/`）の1ファイルだけ。
 - **ゲームのビルド・実行にKSO闘龍は不要。** 生成済みテクスチャがコミットされているので、cloneしてそのままビルドできる。ビルドやZIP作成はテクスチャ生成スクリプトを実行しない。
 - テクスチャ生成スクリプト `Tools/TextureGen/generate_textures.py` を再実行した場合、KSO闘龍がOSにインストールされていればそれを使う。なければ（その旨を表示して）OSの日本語フォント（Yu Gothic、Meiryo、Noto Sans CJK等）で最後まで生成する。代替フォントの生成物は配布版と文字のデザインが異なる。`--out <フォルダー>` で出力先を分けると、コミット済みのテクスチャを変えずに試せる。
 - 生成記録（入力と出力のハッシュ、要求したフォント・実際に使ったフォント・代替したか）は `Generated/texture_generation_manifest.json`。
@@ -169,6 +179,7 @@ PC版の **対戦モードだけ** をスマートフォンで遊べるように
 ./Build-Windows.ps1        # bin/Release-<Version>/AF-MilitaryShogi.exe
 ./Run-AutoTest.ps1         # ビルドしたEXEで自動対局して検証（2回実行して比較）、Builds/AutoTest/<日時>/ に結果
 ./Build-Android.ps1        # bin/Android/Release-<Version>/AF-MilitaryShogi-<Version>.apk（署名・検証つき）
+./Build-Web.ps1            # bin/Web-<Version>/（WebGL。index.html と Build/）
 ./Test-Android.ps1         # 接続した端末へAPKを入れ、実タップ・回転・ホーム・Modal・プリセット・効果音を検証
 ./Package-Windows.ps1      # 配布候補ZIP（Builds/Package/）。公開準備で Prepare-Release.ps1 が Distribution/ へ
 ```
@@ -191,5 +202,8 @@ PC版の **対戦モードだけ** をスマートフォンで遊べるように
 | `Tools/TextureGen/` | テクスチャ生成スクリプト（Python 3 + Pillow + NumPy）。駒文字は昭和書体「闘龍」（KSO闘龍、OSにインストール済みの場合）、なければOSの日本語フォントで生成 |
 | `Tools/AudioGen/` | 効果音生成スクリプト（Python 3 + NumPy）。出力は `Assets/Generated/Resources/Audio/` と `audio_manifest.json` |
 | `Assets/Scripts/` | Rules / Observation / Engine / Cpu / Game |
-| `Assets/Editor/` | シーン・マテリアル生成、テクスチャ取込設定、Windowsビルド |
+| `Assets/Editor/` | シーン・マテリアル生成、テクスチャ取込設定、Windows・Android・Webビルド |
+| `Assets/WebFonts/` | Web版の画面の文字用フォント（Noto Sans JP、SIL OFL 1.1）とライセンス文。Webビルドにだけ入る |
+| `Assets/WebGLTemplates/`、`Assets/Plugins/WebGL/` | Web版のページのテンプレートと、ブラウザへの保存の橋渡し |
+| `Tools/WebServe/` | Webビルドを手元のブラウザで確かめるための配信スクリプト |
 | `Tests/` | .NET テスト |

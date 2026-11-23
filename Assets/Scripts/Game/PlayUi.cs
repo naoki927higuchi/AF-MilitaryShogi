@@ -150,7 +150,7 @@ namespace MilitaryShogi.Game
             UiKit.Spot("play.research", research);
             UiKit.Spot("play.help", new Rect(bx + 128, 16, 120, 40));
             UiKit.Spot("play.settings", new Rect(bx + 256, 16, 120, 40));
-            if (GUI.Button(research, "研究モードへ", ui.Button)) presentation.SetMode(PresentationMode.Research);
+            if (presentation.ResearchAvailable && GUI.Button(research, "研究モードへ", ui.Button)) presentation.SetMode(PresentationMode.Research);
             if (GUI.Button(new Rect(bx + 128, 16, 120, 40), "あそびかた", ui.Button)) presentation.OpenHelp();
             if (GUI.Button(new Rect(bx + 256, 16, 120, 40), "設定", ui.Button)) { presentation.SettingsOpen = !presentation.SettingsOpen; confirmNew = false; }
             if (GUI.Button(new Rect(bx + 384, 16, 120, 40), "新規対局", ui.Button))
@@ -237,7 +237,7 @@ namespace MilitaryShogi.Game
 
         private void DrawSettings()
         {
-            var r = Region(new Rect(vw - 14 - 2 * 128 - SettingsPanel.Width / 2 + 60, 78, SettingsPanel.Width, SettingsPanel.Height));
+            var r = Region(new Rect(vw - 14 - 2 * 128 - SettingsPanel.Width / 2 + 60, 78, SettingsPanel.Width, settings.PreferredHeight));
             GUI.Box(r, GUIContent.none, ui.Panel);
             GUILayout.BeginArea(new Rect(r.x + 14, r.y + 10, r.width - 28, r.height - 20));
             if (settings.Draw(ui)) presentation.SettingsOpen = false;

@@ -18,6 +18,7 @@ namespace MilitaryShogi.Game
             get
             {
                 if (all != null) return all;
+                if (WebSupport.IsWeb) { all = new string[0]; return all; }   // a page has no arguments
                 var list = new List<string>(Environment.GetCommandLineArgs());
 #if UNITY_ANDROID && !UNITY_EDITOR
                 try

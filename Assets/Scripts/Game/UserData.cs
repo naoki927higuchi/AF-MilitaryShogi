@@ -23,7 +23,8 @@ namespace MilitaryShogi.Game
             {
                 if (dir == null)
                 {
-                    dir = GameBootstrap.Argument("-dataDir") ?? Application.persistentDataPath;
+                    // Web: a fixed folder, so an update on the host (new page URL) keeps presets and settings.
+                    dir = WebSupport.IsWeb ? WebSupport.DataDirectory : GameBootstrap.Argument("-dataDir") ?? Application.persistentDataPath;
                     System.IO.Directory.CreateDirectory(dir);
                 }
                 return dir;
@@ -109,6 +110,7 @@ namespace MilitaryShogi.Game
                 File.WriteAllText(tmp, text, new UTF8Encoding(false));
                 if (File.Exists(path)) File.Delete(path);
                 File.Move(tmp, path);
+                WebSupport.SyncFiles();   // Web: copy to the browser's storage (no-op elsewhere)
             }
             catch (Exception e)
             {

@@ -618,7 +618,7 @@ namespace MilitaryShogi.Game
                 var cpuView = Session.CpuView();
                 var cpu = Cpu;
                 cpu.Observe(cpuView);                          // state changes happen here, on the main thread
-                thinking = Task.Run(() => cpu.Think(cpuView)); // pure computation in the background
+                thinking = WebSupport.Run(() => cpu.Think(cpuView)); // pure computation: background thread (Web: here, no threads)
             }
             else
             {

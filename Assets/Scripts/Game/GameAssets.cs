@@ -58,6 +58,8 @@ namespace MilitaryShogi.Game
         {
             get
             {
+                // Web: no OS fonts in a browser; the Web build carries Noto Sans JP (1.6.0).
+                if (uiFont == null && WebSupport.IsWeb) uiFont = WebSupport.BundledFont();
                 if (uiFont == null)
                 {
                     var names = new System.Collections.Generic.List<string> { "Yu Gothic UI", "Meiryo UI", "Meiryo", "MS UI Gothic", "MS Gothic" };

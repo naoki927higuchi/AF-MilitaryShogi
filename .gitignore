@@ -47,3 +47,5 @@ __pycache__/
 *.woff2
 *.eot
 /Reference/UserProvided/Fonts/
+# Exception (1.6.0): Noto Sans JP (SIL OFL 1.1) for the Web build only; a browser has no OS fonts.
+!/Assets/WebFonts/NotoSansJP-Regular.otf

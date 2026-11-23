@@ -38,11 +38,12 @@ The piece names and the HQ label are images drawn with the licensed font KSO Tou
 - `Assets/Generated/Resources/Textures/Pieces/piece_*.png`（`piece_back.png`・`piece_side.png` を除く）
 - `Assets/Generated/Resources/Textures/Board/label_hq.png`
 - `Generated/Previews/piece_contact_sheet.png`
-- フォント本体はリポジトリにも配布物にも含まれていません。使用許諾：https://designpocket.jp/font/detail/23984
+- KSO闘龍のフォント本体はリポジトリにも配布物にも含まれていません。使用許諾：https://designpocket.jp/font/detail/23984
 
 ## 第三者 / Third party
 
 - Unity のエンジン・ランタイム・パッケージ：Unity の利用規約と各パッケージのライセンスに従います。Windows版・Android版のビルドに含まれる Unity のファイルは、このリポジトリのライセンスの対象ではありません。
+- Noto Sans JP（`Assets/WebFonts/NotoSansJP-Regular.otf`）：SIL Open Font License 1.1（`Assets/WebFonts/NotoSansJP-LICENSE.txt`）。Web版の画面の文字にだけ使い、Webビルドに含まれます。Windows版・Android版には含まれません。 / Noto Sans JP is under the SIL Open Font License 1.1 and is bundled only with the Web build.
 - 生成スクリプトが使う Python・Pillow・NumPy は同梱していません。
 
 ## 補足 / Notes

@@ -14,7 +14,7 @@ namespace MilitaryShogi.Game
     /// </summary>
     public sealed class GameBootstrap : MonoBehaviour
     {
-        public const string Version = "1.5.2";
+        public const string Version = "1.6.0";
 
         /// <summary>Android (or -mobileui on PC for layout checks).</summary>
         public static bool Mobile { get; private set; }
@@ -94,14 +94,24 @@ namespace MilitaryShogi.Game
                 Screen.autorotateToPortraitUpsideDown = false;
                 var mobile = controller.gameObject.AddComponent<MobileUi>();
                 mobile.Bind(controller, presentation);
+                if (WebSupport.IsWeb) mobile.Presets.FixedNames = true;   // phone browser: not supported, best effort
             }
             else
             {
                 var play = controller.gameObject.AddComponent<PlayUi>();
                 play.Bind(controller, presentation);
-                var research = controller.gameObject.AddComponent<ResearchUi>();
-                research.Version = Version;
-                research.Bind(controller, presentation);
+                if (WebSupport.IsWeb)
+                {
+                    // Web: 対戦モード only, like Android (no research UI, no research shortcuts).
+                    presentation.ResearchAvailable = false;
+                    play.Presets.FixedNames = true;   // no text entry in the browser (no IME): slots are プリセット1〜5
+                }
+                else
+                {
+                    var research = controller.gameObject.AddComponent<ResearchUi>();
+                    research.Version = Version;
+                    research.Bind(controller, presentation);
+                }
             }
             var help = controller.gameObject.AddComponent<HelpUi>();
             help.Bind(controller, presentation);
