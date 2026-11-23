@@ -61,12 +61,18 @@ namespace MilitaryShogi.Game
         /// Pixels per UI unit. PC: the window height relative to 900. Android: density-independent
         /// pixels (dpi / 160), so buttons keep a physical size fit for fingers in both orientations.
         /// </summary>
+        public const float AppScaleFactor = 0.6f;
+
         public static float Scale
         {
             get
             {
                 if (!Mobile) return Mathf.Clamp(Screen.height / VirtualHeight, 0.75f, 2.5f);
-                if (Application.isMobilePlatform && Screen.dpi > 0) return Mathf.Clamp(Screen.dpi / 160f, 1f, 4f);
+                // The browser reports 96 dpi × device pixel ratio, which is 0.6 × the Android density, so the
+                // Web version draws the same layout at 0.6 × the app's size. The app uses that size too
+                // (1.6.0, user decision): the setup sheet then fits without scrolling on phones.
+                if (Application.isMobilePlatform && Screen.dpi > 0)
+                    return Mathf.Clamp(Screen.dpi / 160f * (WebSupport.IsWeb ? 1f : AppScaleFactor), 1f, 4f);
                 return Mathf.Clamp(Mathf.Min(Screen.width, Screen.height) / 411f, 0.75f, 4f);   // PC emulation of a phone
             }
         }
