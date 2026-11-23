@@ -69,7 +69,10 @@
           document.querySelector("#loading").style.display = "none";
           var button = document.querySelector("#fullscreen");
           function isFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
-          function update() { button.style.display = isFull() ? "none" : "block"; }
+          // No button where the browser cannot do it: iPhone has no full screen for a page (the button
+          // did nothing there). Android and desktop browsers report it as enabled.
+          var canFull = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) && !/iPhone|iPod/i.test(navigator.userAgent);
+          function update() { button.style.display = (!canFull || isFull()) ? "none" : "block"; }
           button.onclick = function () {
             var el = document.documentElement;
             var req = el.requestFullscreen || el.webkitRequestFullscreen;

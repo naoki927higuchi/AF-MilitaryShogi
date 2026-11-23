@@ -44,7 +44,9 @@ mergeInto(LibraryManager.library, {
       if (canvas) canvas.style.touchAction = 'none';
       var root = document.documentElement;
       var request = root.requestFullscreen || root.webkitRequestFullscreen;
-      if (!request || document.querySelector('#fullscreen') || document.querySelector('#afms-fullscreen')) return;
+      // iPhone has no full screen for a page: no button there (it would do nothing).
+      var canFull = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled) && !/iPhone|iPod/i.test(navigator.userAgent);
+      if (!request || !canFull || document.querySelector('#fullscreen') || document.querySelector('#afms-fullscreen')) return;
       var button = document.createElement('div');
       button.id = 'afms-fullscreen';
       button.textContent = '⛶';
