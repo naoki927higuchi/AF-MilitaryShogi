@@ -15,7 +15,7 @@
       #bar-full { width: 0%; height: 100%; background: #ffd685; }
       #loading .note { font-size: 13px; margin-top: 12px; opacity: .75; }
       #fullscreen { position: fixed; right: 6px; bottom: 6px; width: 40px; height: 40px; border-radius: 8px; border: 1px solid rgba(255,214,133,.7);
-                    background: rgba(11,8,6,.6); color: #ffd685; font-size: 22px; line-height: 38px; text-align: center; cursor: pointer;
+                    background: rgba(11,8,6,.6); cursor: pointer; align-items: center; justify-content: center;
                     user-select: none; -webkit-user-select: none; display: none; }
       #warning { position: fixed; left: 0; top: 0; width: 100%; font-family: sans-serif; font-size: 14px; display: none; z-index: 10; }
     </style>
@@ -29,7 +29,8 @@
       <div id="bar"><div id="bar-full"></div></div>
       <div class="note">読み込み中…</div>
     </div>
-    <div id="fullscreen" title="全画面">&#x26F6;</div>
+    <!-- The icon is drawn here as four corner marks (own drawing), not a font character: a symbol character is missing from many devices' fonts. -->
+    <div id="fullscreen" title="全画面"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#ffd685" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></div>
     <div id="warning"></div>
     <script>
       var canvas = document.querySelector("#unity-canvas");
@@ -75,7 +76,7 @@
           var root = document.documentElement;
           var request = root.requestFullscreen || root.webkitRequestFullscreen;
           var canFull = !!request && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
-          function update() { button.style.display = (!canFull || isFull()) ? "none" : "block"; }
+          function update() { button.style.display = (!canFull || isFull()) ? "none" : "flex"; }
           function failed() { if (!isFull()) { canFull = false; update(); } }
           button.onclick = function () {
             try {

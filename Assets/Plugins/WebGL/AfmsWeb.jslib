@@ -50,13 +50,15 @@ mergeInto(LibraryManager.library, {
       if (!canFull || document.querySelector('#fullscreen') || document.querySelector('#afms-fullscreen')) return;
       var button = document.createElement('div');
       button.id = 'afms-fullscreen';
-      button.textContent = '⛶';
+      // Four corner marks drawn as lines (own drawing), not a font character: a symbol character
+      // is missing from many devices' fonts.
+      button.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#ffd685" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>';
       button.title = '全画面';
       button.style.cssText = 'position:fixed;right:6px;bottom:6px;width:40px;height:40px;border-radius:8px;' +
-        'border:1px solid rgba(255,214,133,.7);background:rgba(11,8,6,.6);color:#ffd685;font-size:22px;' +
-        'line-height:38px;text-align:center;cursor:pointer;user-select:none;-webkit-user-select:none;z-index:1000;';
+        'border:1px solid rgba(255,214,133,.7);background:rgba(11,8,6,.6);align-items:center;justify-content:center;' +
+        'cursor:pointer;user-select:none;-webkit-user-select:none;z-index:1000;';
       var isFull = function () { return !!(document.fullscreenElement || document.webkitFullscreenElement); };
-      var update = function () { button.style.display = (!canFull || isFull()) ? 'none' : 'block'; };
+      var update = function () { button.style.display = (!canFull || isFull()) ? 'none' : 'flex'; };
       // A request that fails all the same (rejected, or still not full screen a moment later) removes the button.
       var failed = function () { if (!isFull()) { canFull = false; update(); } };
       button.onclick = function () {
