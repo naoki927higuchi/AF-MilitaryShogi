@@ -27,9 +27,17 @@ namespace MilitaryShogi.Game
 
 #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")] private static extern void AfmsSyncFiles();
+        [DllImport("__Internal")] private static extern void AfmsPreparePage();
 #else
         private static void AfmsSyncFiles() { }
+        private static void AfmsPreparePage() { }
 #endif
+
+        /// <summary>
+        /// Web, phones: makes a hosting page we do not control usable (viewport, real pixel ratio, a
+        /// full-screen button) – see AfmsWeb.jslib. Call once at start-up. Elsewhere: nothing.
+        /// </summary>
+        public static void PreparePage() { if (IsWeb) AfmsPreparePage(); }
 
         /// <summary>Web: copies the files just written (presets, settings) to the browser's storage. Elsewhere: nothing.</summary>
         public static void SyncFiles() { if (IsWeb) AfmsSyncFiles(); }

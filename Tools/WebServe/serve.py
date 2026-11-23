@@ -34,6 +34,28 @@ BUILD = chosen_build()
 TYPES = {'.js': 'application/javascript', '.wasm': 'application/wasm', '.data': 'application/octet-stream',
          '.json': 'application/json', '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.ico': 'image/x-icon'}
 
+# /ur/ : the build inside a page written like unityroom's game page (measured 2026-11-23): no viewport
+# meta, devicePixelRatio forced to 1 on phones, the canvas fills the window, no full-screen button.
+# For checking, before an upload, how the game behaves on a host whose page we do not control.
+def unityroom_like_page():
+    names = {}
+    for f in os.listdir(os.path.join(BUILD, 'Build')):
+        for key in ('loader.js', 'data.gz', 'framework.js.gz', 'wasm.gz'):
+            if f.endswith(key): names[key] = f
+    return ("""<html lang="ja"><head><meta charset="utf-8"><title>unityroom-like test page</title>
+<style>html,body{margin:0;padding:0;width:100%%;height:100%%;background:#000}#unity-container{width:100%%;height:100%%}</style></head>
+<body><div id="unity-container"><canvas id="unity-canvas" width="1280" height="720"></canvas></div>
+<script>
+var config = { dataUrl: "/Build/%(data.gz)s", frameworkUrl: "/Build/%(framework.js.gz)s", codeUrl: "/Build/%(wasm.gz)s",
+  streamingAssetsUrl: "StreamingAssets", companyName: "empty", productName: "empty", productVersion: "0" };
+var canvas = document.querySelector("#unity-canvas");
+if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) { config.devicePixelRatio = 1; }
+canvas.style.width = "100%%"; canvas.style.height = "100%%";
+var script = document.createElement("script"); script.src = "/Build/%(loader.js)s";
+script.onload = () => { createUnityInstance(canvas, config, () => {}).catch((m) => { alert(m); }); };
+document.body.appendChild(script);
+</script></body></html>""" % names).encode('utf-8')
+
 class Handler(http.server.BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
 
@@ -53,6 +75,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         path = self.path.split('?', 1)[0]
         for prefix in ('/a/', '/b/'):
             if path.startswith(prefix): path = path[len(prefix) - 1:]
+        if path in ('/ur', '/ur/'): return self.send_bytes(200, unityroom_like_page(), 'text/html; charset=utf-8')
         if path == '/': path = '/index.html'
         full = os.path.normpath(os.path.join(BUILD, path.lstrip('/')))
         if not full.startswith(BUILD) or not os.path.isfile(full):

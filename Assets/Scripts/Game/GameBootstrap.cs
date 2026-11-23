@@ -21,6 +21,7 @@ namespace MilitaryShogi.Game
 
         private void Awake()
         {
+            WebSupport.PreparePage();   // Web, phones: repair a hosting page we do not control (no-op elsewhere)
             Mobile = Application.isMobilePlatform || LaunchArgs.Has("-mobileui");
             UiKit.Mobile = Mobile;
             Application.targetFrameRate = 60;
