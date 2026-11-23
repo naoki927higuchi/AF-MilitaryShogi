@@ -10,17 +10,17 @@
 
 | 項目 | 内容 |
 |---|---|
-| 対象プラットフォーム | Windows。Android（1.3.0〜、一般配布しない）。Web（WebGL、1.6.0〜、PCのブラウザ。スマートフォンのブラウザは対象外で動作を保証しない。試作・未公開） |
+| 対象プラットフォーム | Windows。Android（1.3.0〜、一般配布しない）。Web（WebGL、1.6.0〜、unityroom で公開。PCのブラウザが対象。スマートフォンのブラウザは Android と iPhone で動作確認済みだが保証はしない。iPhone は全画面にできない） |
 | 製品プロジェクト | Unityプロジェクト（Unity 6.6 = 6000.6.2f1、Built-in Render Pipeline、Mono、Windows x64） |
 | バージョン設定元 | `VERSION.txt`（3桁）。`GameBootstrap.Version` と一致しないとビルドが失敗する。ビルド時に `PlayerSettings.bundleVersion` へ反映 |
 | Windowsリリース出力 | `bin/Release-<Version>/AF-MilitaryShogi.exe`（`Build-Windows.ps1`） |
 | Androidリリース出力 | `bin/Android/Release-<Version>/AF-MilitaryShogi-<Version>.apk`（`Build-Android.ps1`、1.3.0〜）。ARM64/IL2CPP Release、デバッグ不可、シンボルなし。SHA256・マニフェスト・署名の検証結果を併置。Git管理外。一般配布しない |
-| Web出力 | `bin/Web-<Version>/`（`Build-Web.ps1`、1.6.0〜。`index.html` と `Build/`、Gzip）。手元の確認は `python -I Tools/WebServe/serve.py`（127.0.0.1 のみ。`--lan` を付けた時だけ同じLAN内の端末から開ける。ユーザーの指示がある時だけ使い、確かめ終わったら止める）。Git管理外。公開先は未定。確認用ビルドは `Build-Web.ps1 -Dev` → `bin/WebDev-<Version>/`（審判の画面をキーで開く `WebDevHooks` 入り、定義 `AFMS_WEBDEV`）。公開・配布しない。通常のビルドに確認用のコードを入れない |
+| Web出力 | `bin/Web-<Version>/`（`Build-Web.ps1`、1.6.0〜。`index.html` と `Build/`、Gzip）。手元の確認は `python -I Tools/WebServe/serve.py`（127.0.0.1 のみ。`--lan` を付けた時だけ同じLAN内の端末から開ける。ユーザーの指示がある時だけ使い、確かめ終わったら止める）。Git管理外。公開先は unityroom（https://unityroom.com/games/af-military-shogi 、2026-11-24 公開。アップロードはユーザーが行い、こちらは `Builds/Package/AF-MilitaryShogi-<Version>-unityroom/Build/` に4ファイルを用意する。公開版の版数は Windows版とそろえる）。確認用ビルドは `Build-Web.ps1 -Dev` → `bin/WebDev-<Version>/`（審判の画面をキーで開く `WebDevHooks` 入り、定義 `AFMS_WEBDEV`）。公開・配布しない。通常のビルドに確認用のコードを入れない |
 | Android実機確認の端末 | 開発・試験の動作確認は Pixel 7 Pro（USBデバッグ）で行う。Galaxy S26 Ultra はユーザーの実戦プレイ用端末で、転送・インストールはユーザーが明示的に指示した場合だけ行う（上書きインストールでデータを残す。S26で自動試験はしない）（2026-09-24〜）。`Test-Android.ps1` は `ANDROID_SERIAL` で端末を指定する。adbはAndroid SDKのplatform-tools（Unity同梱版と混在させない） |
 | Android署名 | 専用のローカルRelease鍵。鍵とDPAPI暗号化パスワードは `.local/android-signing/`（Git管理外）。同一アプリの更新は同じ鍵で行う |
 | Windows配布ZIP | `Package-Windows.ps1` で `Builds/Package/` に作成・検証（100MB未満、デバッグ成果物なし、同梱README）→ 公開準備で `Prepare-Release.ps1` が `Distribution/` へZIP・SHA256・JSONを配置 |
 | 検証方法 | `Run-Tests.ps1`（ルール・エンジン・CPU・情報境界・強さ/戦い方・あそびかた・プリセット・全局の自動テスト、.NET 9 SDK）、`Build-Windows.ps1`（アプリアイコン設定の確認を含む）、`Run-AutoTest.ps1`（ビルドしたEXEで自動対局を2回：表示モード切替あり/なしの指紋比較、再起動後のユーザーデータ保持、敵駒表面の描画検査、UI状態遷移ストレステスト、損失表示・レイアウト・効果音同期・経過時間・あそびかた一時停止・ロゴ・アイコンの検査、スクリーンショット）。人の手による実プレイ確認・聴感確認は別途 |
-| 公開先 | `Distribution/` |
+| 公開先 | Windows版：`Distribution/`。Web版：unityroom（https://unityroom.com/games/af-military-shogi） |
 | 利用者が別途用意するランタイム・外部ツール | なし（Unityプレイヤー同梱） |
 | 製品ライセンス | ソースコードはMIT（Copyright (c) 2026 af）、素材はCC BY 4.0、ブランド素材とKSO闘龍で描いた画像は許諾しない（2026-09-25決定。`LICENSE`・`LICENSE-ASSETS.md`） |
 | 第三者ライセンス表記 | 公開時に決定。駒テクスチャには昭和書体「闘龍」（KSO闘龍）で描画した文字が含まれる（フォントファイルは同梱しない。使用許諾 https://designpocket.jp/font/detail/23984 ）。フォントの使用許諾と配布物は2026-09-24に監査済み（判定A、Tests/ACCEPTANCE-1.3.0.md）。KSO闘龍で描いた画像は再許諾しない（`LICENSE-ASSETS.md`） |
