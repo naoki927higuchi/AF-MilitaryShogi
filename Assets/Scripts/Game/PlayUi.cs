@@ -205,6 +205,7 @@ namespace MilitaryShogi.Game
                 {
                     game.Settings.Strength = s;
                     game.RefreshCpu();
+                    UserData.CpuChoiceChanged(game.Settings);
                 }
             UiKit.SpotLast("setup.strongest");
             GUILayout.EndHorizontal();
@@ -215,6 +216,7 @@ namespace MilitaryShogi.Game
                 {
                     game.Settings.Temperament = t;
                     game.RefreshCpu();
+                    UserData.CpuChoiceChanged(game.Settings);
                 }
 
             UiKit.Separator(ui);

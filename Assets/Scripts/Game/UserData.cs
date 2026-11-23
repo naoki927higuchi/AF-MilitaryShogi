@@ -83,6 +83,11 @@ namespace MilitaryShogi.Game
                 if (map.TryGetValue("observationTooltip", out v)) s.ObservationTooltip = v != "0";
                 if (map.TryGetValue("sfx", out v)) s.SfxOn = v != "0";
                 if (map.TryGetValue("sfxVolume", out v) && int.TryParse(v, out i)) s.SfxVolume = Mathf.Clamp(i, 0, 100);
+                if (KeepsCpuChoice)
+                {
+                    if (map.TryGetValue("cpuStrength", out v) && int.TryParse(v, out i) && i >= 0 && i <= 2) s.Strength = (MilitaryShogi.Cpu.CpuStrength)i;
+                    if (map.TryGetValue("cpuTemperament", out v) && int.TryParse(v, out i) && i >= -2 && i <= 2) s.Temperament = i;
+                }
             }
             catch (Exception e)
             {
@@ -99,7 +104,24 @@ namespace MilitaryShogi.Game
             sb.Append("observationTooltip=").Append(s.ObservationTooltip ? 1 : 0).Append('\n');
             sb.Append("sfx=").Append(s.SfxOn ? 1 : 0).Append('\n');
             sb.Append("sfxVolume=").Append(s.SfxVolume).Append('\n');
+            if (KeepsCpuChoice)
+            {
+                sb.Append("cpuStrength=").Append((int)s.Strength).Append('\n');
+                sb.Append("cpuTemperament=").Append(s.Temperament).Append('\n');
+            }
             WriteAtomically(SettingsPath, sb.ToString());
+        }
+
+        /// <summary>
+        /// Web only (1.6.0): the CPU strength and temperament chosen before a game are kept too, so a
+        /// page reload does not put them back to 中・バランス. Windows and Android keep their behaviour.
+        /// </summary>
+        public static bool KeepsCpuChoice { get { return WebSupport.IsWeb; } }
+
+        /// <summary>Call after the player changes the CPU strength or temperament.</summary>
+        public static void CpuChoiceChanged(GameSettings s)
+        {
+            if (KeepsCpuChoice) SaveSettings(s);
         }
 
         private static void WriteAtomically(string path, string text)

@@ -393,15 +393,16 @@ namespace MilitaryShogi.Game
                 {
                     game.Settings.Strength = s;
                     game.RefreshCpu();
+                    UserData.CpuChoiceChanged(game.Settings);
                 }
             GUILayout.EndHorizontal();
             GUILayout.Space(4);
             GUILayout.Label("CPUの戦い方", ui.Small);
             GUILayout.BeginHorizontal();
             int t = game.Settings.Temperament;
-            if (GUILayout.Button("◀", ui.Button, GUILayout.Width(Touch + 8), GUILayout.Height(Touch)) && t < 2) { game.Settings.Temperament = t + 1; game.RefreshCpu(); }
+            if (GUILayout.Button("◀", ui.Button, GUILayout.Width(Touch + 8), GUILayout.Height(Touch)) && t < 2) { game.Settings.Temperament = t + 1; game.RefreshCpu(); UserData.CpuChoiceChanged(game.Settings); }
             GUILayout.Label(CpuProfile.TemperamentName(game.Settings.Temperament), new GUIStyle(ui.Label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold }, GUILayout.Height(Touch), GUILayout.ExpandWidth(true));
-            if (GUILayout.Button("▶", ui.Button, GUILayout.Width(Touch + 8), GUILayout.Height(Touch)) && t > -2) { game.Settings.Temperament = t - 1; game.RefreshCpu(); }
+            if (GUILayout.Button("▶", ui.Button, GUILayout.Width(Touch + 8), GUILayout.Height(Touch)) && t > -2) { game.Settings.Temperament = t - 1; game.RefreshCpu(); UserData.CpuChoiceChanged(game.Settings); }
             GUILayout.EndHorizontal();
             GUILayout.Label("◀ 攻撃的　　　防御的 ▶", new GUIStyle(ui.Small) { alignment = TextAnchor.MiddleCenter });
             UiKit.Separator(ui);
