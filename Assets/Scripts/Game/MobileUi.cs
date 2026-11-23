@@ -65,7 +65,13 @@ namespace MilitaryShogi.Game
 
         /// <summary>Portrait after the game: one more row for the 棋譜再現 controls (finger-sized buttons).</summary>
         private float TopBarHeight { get { return Portrait ? (game != null && game.Phase == Phase.Finished ? 96f : 66f) : 54f; } }
-        private float BottomBarHeight { get { return Portrait ? 84f : 26f; } }
+        private float BottomBarHeight { get { return Portrait ? 84f : WebSetup ? 0f : 26f; } }
+        /// <summary>
+        /// Web, before the game (1.6.0): the placement instructions sit in the top bar beside 「初期配置」.
+        /// Landscape has no status line then (the board gets that height); portrait shows a larger logo
+        /// with the title and the instructions to its right. The Android app keeps its layout.
+        /// </summary>
+        private bool WebSetup { get { return WebSupport.IsWeb && game != null && game.Phase == Phase.Setup; } }
         private const int StripColumns = 12, StripRows = 3;
         private float StripIcon { get { return (safe.width - 16f) / StripColumns; } }
         private float StripHeight { get { return 22f + StripRows * (StripIcon * 1.12f + 2f); } }
@@ -168,7 +174,7 @@ namespace MilitaryShogi.Game
                 else
                 {
                     DrawLossHeadings();
-                    DrawStatusLine();
+                    if (!WebSetup) DrawStatusLine();
                     if (game.Phase == Phase.Setup) DrawSideSheet();
                 }
             }
@@ -212,7 +218,7 @@ namespace MilitaryShogi.Game
             bool setupHint = Portrait && game.Phase == Phase.Setup;
             float lh = setupHint ? 27f : Portrait ? 30f : 38f;
             float lw = logo != null ? lh * logo.width / logo.height : 0f;
-            if (logo != null) GUI.DrawTexture(new Rect(bar.x + 8, bar.y + (setupHint ? 3f : 4f), lw, lh), logo, ScaleMode.ScaleToFit, true);
+            if (logo != null && !(setupHint && WebSetup)) GUI.DrawTexture(new Rect(bar.x + 8, bar.y + (setupHint ? 3f : 4f), lw, lh), logo, ScaleMode.ScaleToFit, true);
             string turn = game.Phase == Phase.Setup ? "初期配置" : "TURN " + (game.Ply + (game.IsFinished ? 0 : 1));
             bool mine = game.ToMove == GameController.Human;
             string who = game.Phase == Phase.Setup ? "" : game.IsFinished ? "終局" : mine ? "あなたの番" : "CPUの番";
@@ -231,6 +237,25 @@ namespace MilitaryShogi.Game
                 UiKit.Spot("replay.reveal", toggle);
                 bool on = game.PostGameReveal;
                 if (GUI.Button(toggle, on ? "敵駒開示 ON" : "敵駒開示 OFF", on ? ui.Selected : ui.Button)) game.SetPostGameReveal(!on);
+            }
+            else if (setupHint && WebSetup)
+            {
+                // Web: a larger logo; 「初期配置」 and the instructions to its right. The logo gives way
+                // so that the instructions are never cut.
+                string text = StatusText();
+                var hintStyle = new GUIStyle(ui.Small) { fontSize = 12, wordWrap = false, clipping = TextClipping.Clip };
+                // (the measured width came out too small in the browser, so take the larger of it and an estimate from the character count)
+                float need = Mathf.Max(hintStyle.CalcSize(new GUIContent(text)).x, text.Length * hintStyle.fontSize * 1.05f) + 4f;
+                float right = Mathf.Min(bar.xMax, Screen.width / scale);   // never past the visible edge
+                float bh = TopBarHeight - 8f;
+                float bw = logo != null ? Mathf.Min(bh * logo.width / logo.height, Mathf.Max(40f, right - bar.x - 26f - need)) : 0f;
+                if (logo != null) GUI.DrawTexture(new Rect(bar.x + 8, bar.y + 4, bw, bh), logo, ScaleMode.ScaleToFit, true);
+                float tx = bar.x + 16 + bw;
+                GUI.Label(new Rect(tx, bar.y + 9, right - tx - 6, 24), turn, new GUIStyle(ui.Big) { fontSize = 18 });
+                var hint = new Rect(tx, bar.y + 37, right - tx - 6, 18);
+                GUI.Label(hint, text, hintStyle);
+                UiKit.Spot("mobile.setupHint", hint);
+                if (Event.current.type == EventType.Repaint) SetupHint = text;
             }
             else if (setupHint)
             {
@@ -272,6 +297,15 @@ namespace MilitaryShogi.Game
                 GUI.Label(new Rect(x + 280, bar.y + 16, 110, 24), clock, ui.Clock);
                 float bw = Mathf.Min(3 * 118f + 16f, bar.width - (x + 390 - bar.x));
                 HeaderButtons(new Rect(bar.xMax - bw - 6, bar.y + 4, bw, TopBarHeight - 8));
+                if (WebSetup)
+                {
+                    // Web: the instructions beside 「初期配置」 instead of the status line at the bottom.
+                    float hx = x + 104f;
+                    var hint = new Rect(hx, bar.y + 16, bar.xMax - bw - 14 - hx, 24);
+                    string text = StatusText();
+                    GUI.Label(hint, text, new GUIStyle(ui.Small) { wordWrap = false, clipping = TextClipping.Clip, alignment = TextAnchor.MiddleLeft });
+                    if (Event.current.type == EventType.Repaint) SetupHint = text;
+                }
             }
         }
 
