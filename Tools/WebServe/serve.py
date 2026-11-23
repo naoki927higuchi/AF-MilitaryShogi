@@ -5,9 +5,13 @@
 ・Unity の Gzip 圧縮ファイル（.gz）に Content-Encoding を付ける。
 ・同じビルドを /a/ と /b/ の下でも配信する（ページのURLが変わっても保存が残るかを確かめる用。
   itch.io は更新のたびにURLのパスが変わる）。
+・--lan を付けると、同じLAN内の他の端末（スマートフォンなど）からも開ける（0.0.0.0 で待ち受ける）。
+  確かめ終わったら止める。付けなければこのPCからしか開けない。
 """
 import datetime, glob, http.server, os, socketserver, sys
 
+LAN = '--lan' in sys.argv
+sys.argv = [x for x in sys.argv if x != '--lan']
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, '..', '..'))
 
@@ -72,4 +76,10 @@ if __name__ == '__main__':
     print('build: ' + BUILD)
     print('http://localhost:%d/' % port)
     sys.stdout.flush()
-    Server(('127.0.0.1', port), Handler).serve_forever()
+    if LAN:
+        import socket
+        try:
+            probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); probe.connect(('192.0.2.1', 9)); print('LAN: http://%s:%d/' % (probe.getsockname()[0], port)); probe.close()
+        except OSError: pass
+        sys.stdout.flush()
+    Server(('0.0.0.0' if LAN else '127.0.0.1', port), Handler).serve_forever()
