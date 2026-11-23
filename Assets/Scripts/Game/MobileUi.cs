@@ -97,7 +97,7 @@ namespace MilitaryShogi.Game
                 // game there are no loss strips, and the board is as wide as the screen, so it needs about
                 // 0.88 × width of height; the rest of the play area is margin that the sheet may take.
                 // (1.6.0: first on the Web, then the Android app too)
-                float fixedRows = Touch + 18f;   // the row above the scrolling part, and its gaps
+                float fixedRows = 2 * Touch + 28f;   // あそびかた・設定・新規対局 above and 対局開始 below the scrolling part, and their gaps
                 float room = safe.height - TopBarHeight - safe.width * 0.88f;
                 return Mathf.Min(sheetContentHeight + fixedRows, Mathf.Max(room, safe.height * 0.58f));
             }
@@ -209,11 +209,16 @@ namespace MilitaryShogi.Game
             float gap = 8f, w = (area.width - 2 * gap) / 3f;
             if (Button(new Rect(area.x, area.y, w, area.height), "あそびかた", "mobile.help")) presentation.OpenHelp();
             if (Button(new Rect(area.x + w + gap, area.y, w, area.height), "設定", "mobile.settings")) { presentation.SettingsOpen = true; confirmNew = false; }
+            // Before the game 新規対局 is disabled: it would only redo the placement (like おまかせ配置) and
+            // throw away a placement arranged by hand, and it was mistaken for 対局開始. (1.6.0)
+            bool enabled = GUI.enabled;
+            GUI.enabled = enabled && game.Phase != Phase.Setup;
             if (Button(new Rect(area.x + 2 * (w + gap), area.y, w, area.height), "新規対局", "mobile.new"))
             {
-                if (game.Phase == Phase.Setup || game.IsFinished) game.NewSetup(true);
+                if (game.IsFinished) game.NewSetup(true);
                 else confirmNew = true;
             }
+            GUI.enabled = enabled;
         }
 
         private void DrawTopBar()
@@ -229,6 +234,15 @@ namespace MilitaryShogi.Game
             // than the stacked layout's logo (narrow phones in the app), the stacked layout is used.
             var sideHintStyle = new GUIStyle(ui.Small) { fontSize = 12, wordWrap = false, clipping = TextClipping.Clip };
             float sideRight = Mathf.Min(bar.xMax, Screen.width / scale);   // never past the visible edge
+            if (setupHint)
+            {
+                // 盤を広く表示 / 設定を開く: folds the setup sheet. It sits here (1.6.0) so that the sheet can
+                // keep 対局開始 at its bottom edge in both states without growing.
+                const float tw = 104f;
+                var fold = new Rect(sideRight - tw - 6, bar.y + (TopBarHeight - Touch) / 2f, tw, Touch);
+                if (Button(fold, sheetCollapsed ? "▲ 設定を開く" : "▼ 盤を広く", "mobile.sheet", new GUIStyle(ui.Button) { fontSize = 13 })) sheetCollapsed = !sheetCollapsed;
+                sideRight = fold.x - 4;
+            }
             float sideLogoH = TopBarHeight - 8f, sideLogoW = 0f;
             bool side = false;
             if (setupHint && logo != null)
@@ -276,7 +290,7 @@ namespace MilitaryShogi.Game
             else if (setupHint)
             {
                 GUI.Label(new Rect(bar.x + 10, bar.y + 29, 200, 22), turn, new GUIStyle(ui.Big) { fontSize = 17 });
-                var hint = new Rect(bar.x + 10, bar.y + 50, bar.width - 20, 16);
+                var hint = new Rect(bar.x + 10, bar.y + 50, bar.width - 20, 16);   // (under the fold button, full width)
                 string text = StatusText();
                 GUI.Label(hint, text, new GUIStyle(ui.Small) { fontSize = 12, wordWrap = false, clipping = TextClipping.Clip });
                 UiKit.Spot("mobile.setupHint", hint);
@@ -403,21 +417,16 @@ namespace MilitaryShogi.Game
         {
             var r = Region(new Rect(safe.x, safe.yMax - SheetHeight, safe.width, SheetHeight));
             ui.Fill(new Rect(0, r.y, Screen.width / scale, Screen.height / scale - r.y), new Color(0.06f, 0.045f, 0.035f, 0.95f));
-            // Fixed row: collapse/expand, あそびかた・設定, 対局開始.
-            float y = r.y + 6;
-            float half = (r.width - 24) / 2f;
-            if (Button(new Rect(r.x + 8, y, half, Touch), sheetCollapsed ? "▲ 設定・配置を開く" : "▼ 盤を広く表示", "mobile.sheet")) sheetCollapsed = !sheetCollapsed;
-            if (Button(new Rect(r.x + 16 + half, y, half, Touch), "対局開始", "mobile.start", ui.BigButton)) game.StartGame();
-            y += Touch + 6;
-            if (sheetCollapsed)
-            {
-                HeaderButtons(new Rect(r.x + 8, y, r.width - 16, Touch));
-                return;
-            }
-            var view = new Rect(r.x + 8, y, r.width - 16, r.yMax - y - 4);
+            // Fixed rows: あそびかた・設定・新規対局 at the top, 対局開始 at the bottom edge (as in landscape,
+            // and away from 新規対局). Between them the settings scroll if the screen is short. Folded:
+            // just the two rows. (The fold button is in the top bar.)
+            HeaderButtons(new Rect(r.x + 8, r.y + 6, r.width - 16, Touch));
+            if (Button(new Rect(r.x + 8, r.yMax - Touch - 8, r.width - 16, Touch), "対局開始", "mobile.start", ui.BigButton)) game.StartGame();
+            if (sheetCollapsed) return;
+            float y = r.y + 6 + Touch + 6;
+            var view = new Rect(r.x + 8, y, r.width - 16, r.yMax - Touch - 14 - y);
             sheetScroll.Begin(view, sheetContentHeight);
             GUILayout.BeginArea(new Rect(0, 0, view.width, sheetContentHeight));
-            HeaderButtonsLayout();
             SetupContent(view.width);
             GUILayout.EndArea();
             sheetScroll.End();
