@@ -117,9 +117,17 @@ namespace MilitaryShogi.Game
             GUILayout.EndHorizontal();
             var slot = game.Presets.Slot(SelectedSlot);
             GUILayout.Label(slot.Name + (slot.IsEmpty ? "（空き）" : ""), ui.Small);
+            if (FixedNames)
+            {
+                // One line is always reserved for the confirmation and the result message, so the panel
+                // keeps its height while saving (the setup sheet on phones does not grow and shrink).
+                string note = Saving ? (slot.IsEmpty ? "現在の配置をここに保存します" : "保存済みの配置を上書きします") : Message ?? "";
+                var line = new GUIStyle(ui.Small) { wordWrap = false, clipping = TextClipping.Clip };
+                GUILayout.Label(note, line, GUILayout.Height(line.CalcHeight(new GUIContent("あ"), 200f)));
+            }
             if (Saving)
             {
-                if (FixedNames) GUILayout.Label(slot.IsEmpty ? "現在の配置をここに保存します" : "保存済みの配置を上書きします", ui.Small);
+                if (FixedNames) { }
                 else
                 {
                     GUILayout.Label("名前（そのままでも保存できます）", ui.Small);
@@ -144,7 +152,7 @@ namespace MilitaryShogi.Game
                 UiKit.SpotLast("preset.save");
                 GUILayout.EndHorizontal();
             }
-            if (!string.IsNullOrEmpty(Message)) GUILayout.Label(Message, ui.Small);
+            if (!FixedNames && !string.IsNullOrEmpty(Message)) GUILayout.Label(Message, ui.Small);
         }
     }
 }
